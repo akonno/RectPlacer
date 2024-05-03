@@ -1,4 +1,4 @@
-// 3D animation of the towers of Hanoi
+// RectPlacer - place rectangular prisms onto the scene
 // Copyright (C) 2024 KONNO Akihisa <konno@researchers.jp>
 
 /*
@@ -73,13 +73,6 @@ const i18n = createI18n({
 const app = createApp({
     data() {
       return {
-        playMode: false,
-        compiled: false,
-        errorOccured: false,
-        errorMessage: "",
-        currentMotionStep: 0,
-        numTotalSteps: 0,
-        finished: false,
         rectInfo: "0.1,0.1,0.3,0.2,0,0.2",
         selectedLocale: '',
         showAxes: true
@@ -112,7 +105,6 @@ const app = createApp({
         onSTLUploaded(e)
         {
             // event(=e)から画像データを取得する
-            console.log(e);
             const stlFile = e.target.files[0]
             console.log(stlFile.name);
             loadSTLFromFile(stlFile)
@@ -133,7 +125,7 @@ const app = createApp({
     }
   }).use(i18n).mount("#app");
 
-// The tower of Hanoi visualization/animation
+// RectPlacer visualization
 // scene, camera and renderer
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(
@@ -141,6 +133,8 @@ const camera = new THREE.PerspectiveCamera(
     0.1, 1000
 );
 const renderer = new THREE.WebGLRenderer({antialias: true});
+
+// Camera controls
 const controls = new OrbitControls(camera, renderer.domElement);
 // const controls = new FlyControls(camera, renderer.domElement);
 
@@ -148,8 +142,23 @@ const width = document.getElementById("canvas").scrollWidth;
 renderer.setSize(width, width / 16 * 9);
 document.getElementById("canvas").appendChild(renderer.domElement);
 
-// calculate visualization parameters such as the length of pillars and distance between them.
+// XXX: Coordinates of Three.js:
+// y ^
+//   |
+//   |
+//   +--------> x
+//  /
+// /z
+// z: from the back of the screen towards the front
+//
+// Coordinetes in this program:
+// z ^  y
+//   | /
+//   |/
+//   +--------> x
+// y: from the front of the screen towards the back
 
+// Place elements on the scene.
 // Light
 const light1 = new THREE.AmbientLight(0xffffff, 0.8);
 scene.add(light1);
@@ -175,7 +184,7 @@ const skyGeometry = new THREE.BoxGeometry(5000, 0.1, 5000);
 const skyTexture = new THREE.TextureLoader().load('public/textures/skytile1.png');
 skyTexture.wrapS = THREE.RepeatWrapping;
 skyTexture.wrapT = THREE.RepeatWrapping;
-skyTexture.repeat.set(20, 8);
+skyTexture.repeat.set(25, 25);
 const skyMaterial = new THREE.MeshBasicMaterial({map: skyTexture});
 const sky = new THREE.Mesh(skyGeometry, skyMaterial);
 sky.position.y = 15.0;
@@ -219,10 +228,6 @@ camera.position.z = 0.5;
 // camera.position.z = 4;
 // camera.position.y = 3;
 // camera.rotation.x = -0.5;
-
-let step = 0;
-let rectMeshes = [];
-let errorLine = -1;
 
 // Axes
 // XXX: Axes are rotated! Beware!
@@ -272,9 +277,10 @@ const highlightMaterial = new THREE.MeshPhongMaterial({
     opacity: 0.5         // Semi-transparent
 });
 
+let rectMeshes = [];
+
 function parseRectInfo(commands) {
     // Parse rectInfo text lines
-    errorLine = -1;
     // First, remove current rects.
     rectMeshes.forEach((m) => {
         scene.remove(m);
@@ -318,7 +324,6 @@ function parseRectInfo(commands) {
             rectMeshes.push(mesh);
         } else {
             app.errorMessage = 'error: cannot parse line ' + lineno;
-            errorLine = lineno - 1;
             console.error(app.errorMessage);
             errorOccured = true;
         }
