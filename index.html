@@ -35,8 +35,8 @@ SOFTWARE.
 		<script type="importmap">
 			{
 			  "imports": {
-				"three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/0.163.0/three.module.min.js",
-				"three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/",
+				"three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/0.164.0/three.module.min.js",
+				"three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.0/examples/jsm/",
 				"vue": "https://cdn.jsdelivr.net/npm/vue@3.2/dist/vue.esm-browser.prod.js",
 				"vue-i18n": "https://cdnjs.cloudflare.com/ajax/libs/vue-i18n/9.12.0/vue-i18n.esm-browser.prod.min.js"
 			  }
@@ -71,7 +71,7 @@ SOFTWARE.
 				</div>
 			</section>
 			<section class="section">
-				<div class="container" id="canvas" @click="canvasClicked"></div>
+				<div class="container" id="canvas"></div>
 			<div class="container">
 				<div class="box" id="controllerBox">
 					<div class="columns">
@@ -80,16 +80,9 @@ SOFTWARE.
 							<div class="control has-icons-right">
 								<textarea class="textarea" id="rectInfo" v-model="rectInfo" @input="rectInfoChanged"></textarea>
 							</div>		
+							<label>{{ $t("message.howtohighlight") }}</label>
 						</div>
 						<div class="column">
-							<div class="field is-grouped">
-								<div class="control">
-									<button class="button is-primary" @click="takeScreenShot"><i class="fas fa-camera"></i>{{ $t("message.screenshot") }}</button>
-								</div>
-								<div class="control">
-									<button class="button is-primary" @click="saveRects"><i class="fas fa-file-excel"></i>{{ $t("message.saveRects") }}</button>
-								</div>
-							</div>
 							<div class="file">
 								<label class="file-label">
 								  <input class="file-input" type="file" @change="onSTLUploaded" />
@@ -104,7 +97,14 @@ SOFTWARE.
 							<div class="control">
 								<label class="checkbox"><input type="checkbox" v-model="showAxes" @change="toggleAxes">{{ $t("message.showAxes") }}</label>
 							</div>			
-							<div class="notification is-danger" v-if="errorOccured">{{ errorMessage }}</div>
+							<div class="field is-grouped">
+								<div class="control">
+									<button class="button is-primary" @click="takeScreenShot"><i class="fas fa-camera"></i>{{ $t("message.screenshot") }}</button>
+								</div>
+								<div class="control">
+									<button class="button is-primary" @click="saveRects"><i class="fas fa-file-excel"></i>{{ $t("message.saveRects") }}</button>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -112,7 +112,6 @@ SOFTWARE.
 			</section>
 		</div>
 		<section class="section">
-			<p><a href="about.html">How to use this simulator</a></p>
 			<p>Source: <a href="https://github.com/akonno/rectplacer" target="_blank">RectPlacer</a> on <a href="https://github.com/" target="_blank">GitHub</a></p>
 			<p>Textures for the floor by <a href="https://ambientcg.com/" target="_blank">Lennart Demes at ambientCG</a></p>
 		</section>

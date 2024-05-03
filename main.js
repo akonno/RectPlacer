@@ -41,11 +41,7 @@ const messages = {
             rectplacerdesc: 'Place rectangular parallelpiped on a 3-D model',
             controller: 'Rect Placer',
             rectInfo: 'Size and Position of Rects',
-            reset: 'Reset',
-            play: 'Run simulation',
-            pause: 'Pause',
-            moveIfError: 'Move until error',
-            step: 'Step',
+            howtohighlight: 'Put "*" at the start of the line to highlight the prism',
             screenshot: 'Take screenshot',
             saveRects: 'Save data as CSV',
             selectSTLFile: 'Upload STL file',
@@ -58,11 +54,7 @@ const messages = {
             rectplacerdesc: '3Dモデル上に直方体を置きます',
             controller: '矩形配置',
             rectInfo: '矩形寸法と位置',
-            reset: '最初に戻る',
-            play: '実行',
-            pause: '一時停止',
-            moveIfError: 'エラーの場所まで実行',
-            step: 'ステップ',
+            howtohighlight: '"*"を先頭につけると矩形が強調されます',
             screenshot: '画像を保存',
             saveRects: '矩形データを保存',
             selectSTLFile: 'STLファイルをアップロード',
@@ -220,10 +212,8 @@ scene.add(wallE);
 
 // Camera position
 // normal
-// camera.rotateY(-Math.PI/2);
-// camera.rotateZ(-Math.PI/2);
 camera.position.x = -1;
-camera.position.y = -1;
+camera.position.y = 1;
 camera.position.z = 0.5;
 // close view
 // camera.position.z = 4;
