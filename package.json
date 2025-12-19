@@ -1,0 +1,38 @@
+{
+  "name": "rectplacer",
+  "version": "1.0.0",
+  "description": "This web application allows users to interactively place multiple cuboids and a single 3D object in a virtual space. The application is built using Vue.js for its responsive user interface and Three.js for rendering 3D graphics. Users can load the shape of the 3D object from an STL file and manipulate the dimensions and positions of cuboids directly through a textual interface.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "echo \"Error: no test specified\" && exit 0",
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/akonno/RectPlacer.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/akonno/RectPlacer/issues"
+  },
+  "homepage": "https://github.com/akonno/RectPlacer#readme",
+  "devDependencies": {
+    "@types/node": "^25.0.3",
+    "@vitejs/plugin-vue": "^6.0.3",
+    "three": "^0.182.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.0",
+    "vue": "^3.5.26",
+    "vue-i18n": "^11.2.2",
+    "vue-tsc": "^3.1.8"
+  },
+  "dependencies": {
+    "@fortawesome/fontawesome-free": "^7.1.0",
+    "bulma": "^1.0.4"
+  }
+}

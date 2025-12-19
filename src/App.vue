@@ -1,4 +1,85 @@
-// RectPlacer - place rectangular prisms onto the scene
+// src/App.vue
+<template>
+	<div v-cloak>
+		<section class="hero">
+			<div class="hero-body">
+				<div class="select is-small is-pulled-right">
+					<select id="selectLocale" v-model="selectedLocale" @change="switchLocale">
+						<option disabled value="">Language</option>
+						<option value="en">English</option>
+						<option value="ja">Japanese / 日本語</option>
+					</select>
+				</div>
+				<h1 class="title">
+				{{ $t("message.rectplacertitle") }}
+				</h1>
+				<p class="subtitle">
+					{{ $t("message.rectplacerdesc") }}
+				</p>
+			</div>
+		</section>
+		<section class="section">
+			<div class="container" id="canvas"></div>
+		<div class="container">
+			<div class="box" id="controllerBox">
+				<div class="columns">
+					<div class="column">
+						<label class="label">{{ $t("message.rectInfo") }} (lx,ly,lz,x,y,z)</label>
+						<div class="control has-icons-right">
+							<textarea class="textarea" id="rectInfo" v-model="rectInfo" @input="rectInfoChanged"></textarea>
+						</div>		
+						<label>{{ $t("message.howtohighlight") }}</label>
+					</div>
+					<div class="column">
+						<div class="file">
+							<label class="file-label">
+								<input class="file-input" type="file" @change="onSTLUploaded" />
+								<span class="file-cta">
+								<span class="file-icon">
+									<i class="fas fa-upload"></i>
+								</span>
+								<span class="file-label">{{ $t("message.selectSTLFile") }}</span>
+								</span>
+							</label>
+							</div>
+						<div class="control">
+							<label class="checkbox"><input type="checkbox" v-model="showAxes" @change="toggleAxes">{{ $t("message.showAxes") }}</label>
+						</div>			
+						<div class="field is-grouped">
+							<div class="control">
+								<button class="button is-primary" @click="takeScreenShot"><i class="fas fa-camera"></i>{{ $t("message.screenshot") }}</button>
+							</div>
+							<div class="control">
+								<button class="button is-primary" @click="saveRects"><i class="fas fa-file-csv"></i>{{ $t("message.saveRects") }}</button>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		</section>
+	</div>
+	<section class="section">
+		<p>Source: <a href="https://github.com/akonno/rectplacer" target="_blank">RectPlacer</a> on <a href="https://github.com/" target="_blank">GitHub</a></p>
+		<p>Textures for the floor by <a href="https://ambientcg.com/" target="_blank">Lennart Demes at ambientCG</a></p>
+	</section>
+	<footer class="footer">
+		<div class="content has-text-centered">
+			<p>
+			<a href="https://github.com/akonno/rectplacer"><strong>RectPlacer</strong></a> by KONNO Akihisa
+			</p>
+		</div>
+	</footer>
+</template>
+
+<style scoped>
+	[v-cloak] {
+		display: none;
+	}
+</style>
+
+<script setup lang="ts">
+	// RectPlacer - place rectangular prisms onto the scene
 // Copyright (C) 2024 KONNO Akihisa <konno@researchers.jp>
 
 /*
@@ -30,100 +111,85 @@ import WebGL from 'three/addons/capabilities/WebGL.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { FlyControls } from 'three/addons/controls/FlyControls.js';
-import { createApp } from 'vue';
-import { createI18n } from 'vue-i18n';
+import { ref, onMounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 
-// Vue I18n
-const messages = {
-    en: {
-        message: {
-            rectplacertitle: 'RectPlacer',
-            rectplacerdesc: 'Place rectangular parallelpiped on a 3-D model',
-            controller: 'Rect Placer',
-            rectInfo: 'Size and Position of Rects',
-            howtohighlight: 'Put "*" at the start of the line to highlight the prism',
-            screenshot: 'Take screenshot',
-            saveRects: 'Save data as CSV',
-            selectSTLFile: 'Upload STL file',
-            showAxes: 'Show Axes'
-        },
-    },
-    ja: {
-        message: {
-            rectplacertitle: 'RectPlacer - 直方体を置く',
-            rectplacerdesc: '3Dモデル上に直方体を置きます',
-            controller: '矩形配置',
-            rectInfo: '矩形寸法と位置',
-            howtohighlight: '"*"を先頭につけると矩形が強調されます',
-            screenshot: '画像を保存',
-            saveRects: '矩形データを保存',
-            selectSTLFile: 'STLファイルをアップロード',
-            showAxes: '座標軸を表示'
-        },
-    }
-};
+const { t, locale } = useI18n();
 
-const i18n = createI18n({
-    locale: navigator.language.split('-')[0],
-    fallbackLocale: 'en',
-    messages,
-});
+const rectInfo = ref("0.1,0.1,0.3,0.2,0,0.2");
+const selectedLocale = ref('');
+const showAxes = ref(true);
+const errorOccured = ref(false);
+const errorMessage = ref('');
+const numRects = ref(0);
 
 // setup Vue app
-const app = createApp({
-    data() {
-      return {
-        rectInfo: "0.1,0.1,0.3,0.2,0,0.2",
-        selectedLocale: '',
-        showAxes: true
-      };
-    },
-    methods: {
-        rectInfoChanged()
-        {
-            parseRectInfo(this.rectInfo);
-        },  
-        takeScreenShot()
-        {
-            // https://jsfiddle.net/n853mhwo/
-            var a = document.createElement('a');
-            // Without 'preserveDrawingBuffer' set to true, we must render now
-            renderer.render(scene, camera);
-            a.href = renderer.domElement.toDataURL().replace("image/png", "image/octet-stream");
-            a.download = 'screenshot.png';
-            a.click();
-        },
-        saveRects()
-        {
-            // https://jsfiddle.net/n853mhwo/
-            const a = document.createElement('a');
-            const textBlob = new Blob([this.rectInfo], {type:'text/csv'});
-            a.href = window.URL.createObjectURL(textBlob);
-            a.download = 'rects.csv';
-            a.click();
-        },
-        onSTLUploaded(e)
-        {
-            // event(=e)から画像データを取得する
-            const stlFile = e.target.files[0]
-            console.log(stlFile.name);
-            loadSTLFromFile(stlFile)
-        },
-        switchLocale()
-        {
-            this.$i18n.locale = this.selectedLocale;
-            // console.log('locale is changed to ', this.$i18n.locale);
-        },
-        toggleAxes()
-        {
-            if (this.showAxes) {
-                showAxes();
-            } else {
-                hideAxes();
-            }
-        }
-    }
-  }).use(i18n).mount("#app");
+function rectInfoChanged()
+{
+	parseRectInfo(rectInfo.value);
+}
+function takeScreenShot()
+{
+	// https://jsfiddle.net/n853mhwo/
+	var a = document.createElement('a');
+	// Without 'preserveDrawingBuffer' set to true, we must render now
+	renderer.render(scene, camera);
+	a.href = renderer.domElement.toDataURL().replace("image/png", "image/octet-stream");
+	a.download = 'screenshot.png';
+	a.click();
+}
+function saveRects()
+{
+	// https://jsfiddle.net/n853mhwo/
+	const a = document.createElement('a');
+	const textBlob = new Blob([rectInfo.value], {type:'text/csv'});
+	a.href = window.URL.createObjectURL(textBlob);
+	a.download = 'rects.csv';
+	a.click();
+}
+function onSTLUploaded(e)
+{
+	// event(=e)から画像データを取得する
+	const stlFile = e.target.files[0]
+	console.log(stlFile.name);
+	loadSTLFromFile(stlFile)
+}
+function switchLocale()
+{
+	locale.value = selectedLocale.value;
+	// console.log('locale is changed to ', this.$i18n.locale);
+}
+function toggleAxes()
+{
+	showAxes.value = !showAxes.value;
+}
+
+function isWebGLAvailable(): boolean {
+  try {
+    const canvas = document.createElement("canvas");
+    return !!(canvas.getContext("webgl") || canvas.getContext("experimental-webgl"));
+  } catch {
+    return false;
+  }
+}
+
+onMounted(() => {
+	const width = document.getElementById("canvas")!.scrollWidth;
+	renderer.setSize(width, width / 16 * 9);
+	document.getElementById("canvas")!.appendChild(renderer.domElement);
+
+	onResize();
+	window.addEventListener('resize', onResize);
+	// Start visualization
+	// This should be after initializing app, because animate() uses app.playMode.
+	if (isWebGLAvailable()) {
+		parseRectInfo(rectInfo.value);
+		animate();
+	} else {
+		errorMessage.value = "WebGL is not available on this browser/environment.";
+		errorOccured.value = true;
+	}
+});
 
 // RectPlacer visualization
 // scene, camera and renderer
@@ -138,9 +204,6 @@ const renderer = new THREE.WebGLRenderer({antialias: true});
 const controls = new OrbitControls(camera, renderer.domElement);
 // const controls = new FlyControls(camera, renderer.domElement);
 
-const width = document.getElementById("canvas").scrollWidth;
-renderer.setSize(width, width / 16 * 9);
-document.getElementById("canvas").appendChild(renderer.domElement);
 
 // XXX: Coordinates of Three.js:
 // y ^
@@ -168,40 +231,82 @@ light2.position.y = 4;
 light2.position.z = 10;
 scene.add(light2);
 
+// Texture handling
+function loadTexture(
+  url: string,
+  onLoad: (tex: THREE.Texture) => void,
+  onError?: (err: unknown) => void
+) {
+  const loader = new THREE.TextureLoader();
+  loader.load(
+    url,
+    (tex) => onLoad(tex),
+    undefined,
+    (err) => {
+      console.warn(`[texture] failed to load: ${url}`, err);
+      onError?.(err);
+    }
+  );
+}
+
 // Ground
 const groundGeometry = new THREE.BoxGeometry(5000, 0.1, 5000);
-const groundTexture = new THREE.TextureLoader().load('public/textures/PavingStones128/PavingStones128_1K-JPG_Color.jpg');
-groundTexture.wrapS = THREE.RepeatWrapping;
-groundTexture.wrapT = THREE.RepeatWrapping;
-groundTexture.repeat.set(2500, 2500);
-const groundMaterial = new THREE.MeshLambertMaterial({map: groundTexture});
+const groundMaterial = new THREE.MeshLambertMaterial({color: 0xc2c2c2});
 const ground = new THREE.Mesh(groundGeometry, groundMaterial);
 ground.position.y = -2;
 scene.add(ground);
 
+loadTexture(
+  `${import.meta.env.BASE_URL}/textures/PavingStones128/PavingStones128_1K-JPG_Color.jpg`,
+  (tex) => {
+	tex.wrapS = THREE.RepeatWrapping;
+	tex.wrapT = THREE.RepeatWrapping;
+	tex.repeat.set(2500, 2500);
+	(ground.material as THREE.MeshLambertMaterial).map = tex;
+	(ground.material as THREE.MeshLambertMaterial).color = new THREE.Color(0xffffff);
+	(ground.material as THREE.MeshLambertMaterial).needsUpdate = true;
+  }
+);
+
 // Sky
 const skyGeometry = new THREE.BoxGeometry(5000, 0.1, 5000);
-const skyTexture = new THREE.TextureLoader().load('public/textures/skytile1.png');
-skyTexture.wrapS = THREE.RepeatWrapping;
-skyTexture.wrapT = THREE.RepeatWrapping;
-skyTexture.repeat.set(25, 25);
-const skyMaterial = new THREE.MeshBasicMaterial({map: skyTexture});
+const skyMaterial = new THREE.MeshBasicMaterial({color: 0xaecbe8});
 const sky = new THREE.Mesh(skyGeometry, skyMaterial);
 sky.position.y = 15.0;
 // sky.rotation.z += -0.016;
 scene.add(sky);
 
+loadTexture(
+  `${import.meta.env.BASE_URL}/textures/skytile1.png`,
+  (tex) => {
+	tex.wrapS = THREE.RepeatWrapping;
+	tex.wrapT = THREE.RepeatWrapping;
+	tex.repeat.set(25, 25);
+	(sky.material as THREE.MeshBasicMaterial).map = tex;
+	(sky.material as THREE.MeshBasicMaterial).color = new THREE.Color(0xffffff);
+	(sky.material as THREE.MeshBasicMaterial).needsUpdate = true;
+  }
+);
+
 // Far walls
 const wallSNGeometry = new THREE.BoxGeometry(4000, 100, 1);
-const wallTexture = new THREE.TextureLoader().load('public/textures/skytile1.png');
-wallTexture.wrapS = THREE.RepeatWrapping;
-wallTexture.wrapT = THREE.RepeatWrapping;
-wallTexture.repeat.set(20, 1);
-const wallMaterial = new THREE.MeshBasicMaterial({map: wallTexture});
+const wallMaterial = new THREE.MeshBasicMaterial({color: 0xaecbe8});
 const wallS = new THREE.Mesh(wallSNGeometry, wallMaterial);
 wallS.position.z = -600;
 // wall.position.z = 0;
 scene.add(wallS);
+
+loadTexture(
+  `${import.meta.env.BASE_URL}/textures/skytile1.png`,
+  (tex) => {
+	tex.wrapS = THREE.RepeatWrapping;
+	tex.wrapT = THREE.RepeatWrapping;
+	tex.repeat.set(20, 1);
+	(wallS.material as THREE.MeshBasicMaterial).map = tex;
+	(wallS.material as THREE.MeshBasicMaterial).color = new THREE.Color(0xffffff);
+	(wallS.material as THREE.MeshBasicMaterial).needsUpdate = true;
+  }
+);
 
 const wallN = new THREE.Mesh(wallSNGeometry, wallMaterial);
 wallN.position.z = 600;
@@ -235,7 +340,7 @@ const axes = new THREE.AxesHelper(25);
 axes.rotateX(-Math.PI/2);
 scene.add(axes);
 
-function showAxes()
+function renderAxes()
 {
     scene.remove(axes);
     scene.add(axes);
@@ -292,7 +397,6 @@ function parseRectInfo(commands) {
     const re = new RegExp(/^(\*?)([+-]?\d+(\.(\d+)?)?),([+-]?\d+(\.(\d+)?)?),([+-]?\d+(\.(\d+)?)?),([+-]?\d+(\.(\d+)?)?),([+-]?\d+(\.(\d+)?)?),([+-]?\d+(\.(\d+)?)?)$/);
     const rects = [];
     let lineno = 1;
-    let errorOccured = false;
     rectLines.forEach((line) => {
         if (line === '') {
             // empty line
@@ -323,16 +427,15 @@ function parseRectInfo(commands) {
             mesh.position.z = -y;
             rectMeshes.push(mesh);
         } else {
-            app.errorMessage = 'error: cannot parse line ' + lineno;
-            console.error(app.errorMessage);
-            errorOccured = true;
+            errorMessage.value = 'error: cannot parse line ' + lineno;
+            console.error(errorMessage.value);
+            errorOccured.value = true;
         }
         ++lineno;
     });
-    app.numRects = rects.length;
-
+    numRects.value = rects.length;
     // console.log(compiledMotions);
-    return !errorOccured;
+    return !errorOccured.value;
 }
 
 function animate() {
@@ -343,12 +446,9 @@ function animate() {
     controls.update();
 }
 
-onResize();
-window.addEventListener('resize', onResize);
-
 function onResize()
 {
-    const width = document.getElementById("controllerBox").scrollWidth;
+    const width = document.getElementById("controllerBox")!.scrollWidth;
     const height = width / 16 * 9;
 
     // レンダラーのサイズを調整する
@@ -360,12 +460,5 @@ function onResize()
     camera.updateProjectionMatrix();
 }
 
-// Start visualization
-// This should be after initializing app, because animate() uses app.playMode.
-if (WebGL.isWebGLAvailable()) {
-    parseRectInfo(app.rectInfo);
-    animate();
-} else {
-    app.errorMessage = WebGL.getWebGLErrorMessage();
-    app.errorOccured = true;
-}
+
+</script>

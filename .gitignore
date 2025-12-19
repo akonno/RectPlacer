@@ -1,2 +1,54 @@
+# ------------------------------
+# Notes / local memos
+# ------------------------------
 MEMO.md
-src/
+
+# ------------------------------
+# Temporary / attic
+# ------------------------------
+Attic/
+
+# ------------------------------
+# Node / Vite
+# ------------------------------
+node_modules/
+dist/
+dist-ssr/
+.vite/
+
+# ------------------------------
+# Environment / secrets
+# ------------------------------
+.env
+.env.*
+!.env.example
+
+# ------------------------------
+# Logs
+# ------------------------------
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ------------------------------
+# OS / editor
+# ------------------------------
+.DS_Store
+Thumbs.db
+
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+
+.idea/
+
+# ------------------------------
+# Coverage / test artifacts
+# ------------------------------
+coverage/
+
+# ------------------------------
+# Misc
+# ------------------------------
+*.log
