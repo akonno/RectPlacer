@@ -18,7 +18,7 @@ RectPlacer is a lightweight web tool for defining and managing axis-aligned cubo
 
 ## Research usage
 
-RectPlacer has been used in published research to define and manage structural regions on complex STL models, for example in icing accumulation analysis on ship superstructures
+RectPlacer has been used in a conference proceeding to define and manage structural regions on complex STL models, for example in icing accumulation analysis on ship superstructures
 ([Suizu, Konno and Ozeki, JASNAOE Proc., 2024](https://doi.org/10.14856/conf.39.0_165)).
 
 
