@@ -3,13 +3,28 @@
 	<div v-cloak>
 		<section class="hero">
 			<div class="hero-body">
-				<div class="select is-small is-pulled-right">
-					<select id="selectLocale" v-model="selectedLocale" @change="switchLocale">
-						<option disabled value="">Language</option>
-						<option value="en">English</option>
-						<option value="ja">Japanese / 日本語</option>
-					</select>
-				</div>
+<div class="field is-grouped is-pulled-right">
+  <p class="control">
+    <a
+      class="button is-small is-ghost"
+      href="docs/"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      Docs
+    </a>
+  </p>
+
+  <p class="control">
+    <span class="select is-small">
+      <select id="selectLocale" v-model="selectedLocale" @change="switchLocale">
+        <option disabled value="">Language</option>
+        <option value="en">English</option>
+        <option value="ja">Japanese / 日本語</option>
+      </select>
+    </span>
+  </p>
+</div>
 				<h1 class="title">
 				{{ $t("message.rectplacertitle") }}
 				</h1>
@@ -60,7 +75,13 @@
 		</section>
 	</div>
 	<section class="section">
-		<p>Source: <a href="https://github.com/akonno/rectplacer" target="_blank">RectPlacer</a> on <a href="https://github.com/" target="_blank">GitHub</a></p>
+		<p>
+  Source:
+  <a href="https://github.com/akonno/rectplacer" target="_blank" rel="noopener noreferrer">RectPlacer</a>
+  on <a href="https://github.com/" target="_blank" rel="noopener noreferrer">GitHub</a>
+  &middot;
+  <a href="https://akonno.github.io/RectPlacer/docs/" target="_blank" rel="noopener noreferrer">Docs</a>
+</p>
 		<p>Textures for the floor by <a href="https://ambientcg.com/" target="_blank">Lennart Demes at ambientCG</a></p>
 	</section>
 	<footer class="footer">
