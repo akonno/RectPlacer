@@ -3,7 +3,9 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [ "main" ]   # main運用でなければ変更
-  workflow_dispatch:
+    paths-ignore:
+      - '**/*.md'
+    workflow_dispatch:
 
 permissions:
   contents: read

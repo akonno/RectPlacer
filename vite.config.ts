@@ -15,6 +15,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         index: resolve(__dirname, "src/index.html"),
+        doc_index: resolve(__dirname, "src/docs/index.html"),
       },
     },
   },
