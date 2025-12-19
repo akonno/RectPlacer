@@ -2,6 +2,9 @@
 
 RectPlacer is a lightweight web tool for defining and managing axis-aligned cuboid regions on STL models, primarily intended for numerical analysis preprocessing and research workflows.
 
+- **Live Demo**: https://akonno.github.io/RectPlacer/
+- **Documentation**: https://akonno.github.io/RectPlacer/docs/
+
 ## Intended use cases
 
 - Numerical analysis preprocessing (CFD, DEM, particle tracking)
@@ -15,9 +18,9 @@ RectPlacer is a lightweight web tool for defining and managing axis-aligned cubo
 
 ## Research usage
 
-RectPlacer has been used in published research to define and manage structural regions on complex STL models, for example in icing accumulation analysis on ship superstructures.
+RectPlacer has been used in published research to define and manage structural regions on complex STL models, for example in icing accumulation analysis on ship superstructures
+([Suizu, Konno and Ozeki, JASNAOE Proc., 2024](https://doi.org/10.14856/conf.39.0_165)).
 
-A detailed explanation with examples and figures is provided on the documentation page.
 
 ## Core functionality
 
@@ -28,28 +31,12 @@ A detailed explanation with examples and figures is provided on the documentatio
 
 ## Getting Started
 
-### Prerequisites
+Try the live demo in your browser:
+https://akonno.github.io/RectPlacer/
 
-- A modern web browser that supports WebGL and JavaScript ES6.
-
-## Usage
-
-Access https://akonno.github.io/RectPlacer/ to use this app.
-
-### Adding and Modifying Cuboids
-
-- To add a new cuboid, input its dimensions and positions in the designated text area in the format: `Width,Height,Depth,X,Y,Z`.
-- To modify an existing cuboid, change the values in the text area and the display will update automatically.
-- To highlight an existing cuboid, put '*' at the start of the line.
-
-### Loading a 3D Object
-
-- Use the file input control to load an STL file. The 3D object will appear in the virtual space once the file is loaded.
-
-### Saving Cuboid Data
-
-- Press the "Save data as CSV" button to save the current state of all cuboids to a CSV file. This file can be used to reload the configuration later.
+Detailed usage instructions are available in the documentation:
+https://akonno.github.io/RectPlacer/docs/
 
 ## License
 
-This software is released under the MIT License.
+This software is released under the [MIT License](./LICENSE).
