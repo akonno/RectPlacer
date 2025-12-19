@@ -1,8 +1,25 @@
 # RectPlacer - 3D Model and Cuboid Placement Tool
 
-This web application allows users to interactively place multiple cuboids and a single 3D object in a virtual space. The application is built using Vue.js for its responsive user interface and Three.js for rendering 3D graphics. Users can load the shape of the 3D object from an STL file and manipulate the dimensions and positions of cuboids directly through a textual interface.
+RectPlacer is a lightweight web tool for defining and managing axis-aligned cuboid regions on STL models, primarily intended for numerical analysis preprocessing and research workflows.
 
-## Features
+## Intended use cases
+
+- Numerical analysis preprocessing (CFD, DEM, particle tracking)
+- Definition of regions of interest (ROI) on complex STL geometries
+- Research and engineering workflows where CAD tools are excessive
+- Parametric, text-based management of spatial regions
+
+![RectPlacer screenshot](src/assets/img/rp-sample1a.png)
+
+*Example of defining multiple axis-aligned cuboid regions on an STL model.*
+
+## Research usage
+
+RectPlacer has been used in published research to define and manage structural regions on complex STL models, for example in icing accumulation analysis on ship superstructures.
+
+A detailed explanation with examples and figures is provided on the documentation page.
+
+## Core functionality
 
 - **Place Multiple Cuboids**: Users can create and position multiple cuboids in the space. These cuboids align with the x, y, and z axes.
 - **Load 3D Object from STL File**: The application supports loading a 3D object from an STL file to be placed in the space.
