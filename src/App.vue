@@ -42,10 +42,14 @@
 						<label class="label">{{ $t("message.rectInfo") }} (lx,ly,lz,x,y,z)</label>
 						<div class="control has-icons-right">
 							<textarea class="textarea" id="rectInfo" v-model="rectInfo"></textarea>
-						</div>		
+						</div>
 						<label>{{ $t("message.howtohighlight") }}</label>
+            <div class="content is-size-7">{{ numRectsMessage }}</div>
 					</div>
 					<div class="column">
+            <div v-if="errorOccured" class="notification is-danger">
+              {{ errorMessage }}
+            </div>
 						<div class="file">
 							<label class="file-label">
 								<input class="file-input" type="file" @change="onSTLUploaded" />
@@ -127,7 +131,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-import * as THREE from 'three';
 import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
@@ -143,7 +146,7 @@ const selectedLocale = ref('');
 const showAxes = ref(true);
 const errorOccured = ref(false);
 const errorMessage = ref('');
-const numRects = ref(0);
+const numRectsMessage = ref('');
 
 let three: RectPlacerThree | null = null;
 
@@ -196,12 +199,12 @@ onMounted(() => {
     errorMessage.value = errors.map(e => `Line ${e.line}: ${e.message}`).join("\n");
     errorOccured.value = true;
   } else {
+    errorMessage.value = '';
+    numRectsMessage.value = t("message.numberOfRectangles", { count: rects.length });
     three.setRects(rects);
-    numRects.value = rects.length;
   }
 
 	const width = containerRef.value!.scrollWidth;
-	three.resize(width, width / 16 * 9);
 	// document.getElementById("canvas")!.appendChild(renderer.domElement);
 
 	onResize();
@@ -220,6 +223,7 @@ watch(rectInfo, (newText) => {
   } else {
     errorOccured.value = false;
     errorMessage.value = '';
+    numRectsMessage.value = t("message.numberOfRectangles", { count: rects.length });
     three.setRects(rects);
   }
 });
@@ -268,6 +272,7 @@ function onResize()
 }
 
 onUnmounted(() => {
+  window.removeEventListener('resize', onResize);
   three?.dispose();
   three = null;
 });

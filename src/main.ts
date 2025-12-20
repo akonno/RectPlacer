@@ -42,6 +42,7 @@ const messages = {
             saveRects: 'Save data as CSV',
             selectSTLFile: 'Upload STL file',
             showAxes: 'Show Axes',
+            numberOfRectangles: 'Number of rectangles: {count}',
             // error messages
             webglnotsupported: 'WebGL is not supported in this environment.',
         },
@@ -57,6 +58,7 @@ const messages = {
             saveRects: '矩形データを保存',
             selectSTLFile: 'STLファイルをアップロード',
             showAxes: '座標軸を表示',
+            numberOfRectangles: '矩形の数: {count}',
             // error messages
             webglnotsupported: 'この環境ではWebGLがサポートされていません。',
         },
