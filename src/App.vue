@@ -132,8 +132,14 @@ import WebGL from 'three/addons/capabilities/WebGL.js';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { FlyControls } from 'three/addons/controls/FlyControls.js';
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
+
+import { parseRectInfo } from "./domain/rectParser";
+import { RectPlacerThree } from "./three/rectPlacerThree";
+import { parse } from 'node:path';
+
+const containerRef = ref<HTMLElement | null>(null);
 
 const { t, locale } = useI18n();
 
@@ -143,6 +149,8 @@ const showAxes = ref(true);
 const errorOccured = ref(false);
 const errorMessage = ref('');
 const numRects = ref(0);
+
+let three: RectPlacerThree | null = null;
 
 // setup Vue app
 function rectInfoChanged()
@@ -195,6 +203,21 @@ function isWebGLAvailable(): boolean {
 }
 
 onMounted(() => {
+  // Initialize Three.js renderer
+  if (!containerRef.value) {
+    return;
+  }
+  three = new RectPlacerThree();
+  three.mount(containerRef.value);
+
+  const { rects, errors } = parseRectInfo(rectInfo.value);
+  if (errors.length > 0) {
+    errorMessage.value = errors.map(e => `Line ${e.line}: ${e.message}`).join("\n");
+    errorOccured.value = true;
+  } else {
+    three.setRects(rects);
+  }
+
 	const width = document.getElementById("canvas")!.scrollWidth;
 	renderer.setSize(width, width / 16 * 9);
 	document.getElementById("canvas")!.appendChild(renderer.domElement);
@@ -373,20 +396,40 @@ function hideAxes()
 }
 
 // Load STL
+let stlMesh: THREE.Mesh | null = null;
+
 function loadSTLFromFile(aFile)
 {
     // https://stackoverflow.com/questions/54091926/how-to-upload-stl-files-in-html-using-threejs
     const reader = new FileReader();
     reader.onload = function (e) {
+      disposeStlMesh();
+
         const loader = new STLLoader();
-        const geometry = loader.parse(e.target.result);
+        const geometry = loader.parse(e.target.result as ArrayBuffer);
         const material = new THREE.MeshPhongMaterial({ color: 0xff5555, specular: 0x111111, shininess: 200 });
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.rotateX(-Math.PI/2);
-        scene.add(mesh);
+        stlMesh = new THREE.Mesh(geometry, material);
+        stlMesh.rotateX(-Math.PI/2);
+        scene.add(stlMesh);
     };
     reader.readAsArrayBuffer(aFile);
     // animate();
+}
+
+function disposeStlMesh()
+{
+    if (stlMesh) {
+        scene.remove(stlMesh);
+        stlMesh.geometry.dispose();
+        if (Array.isArray(stlMesh.material)) {
+            for (const mat of stlMesh.material) {
+                mat.dispose();
+            }
+        } else {
+            stlMesh.material.dispose();
+        }
+        stlMesh = null;
+    }
 }
 
 // For rectangular prisms
@@ -404,63 +447,19 @@ const highlightMaterial = new THREE.MeshPhongMaterial({
 });
 
 let rectMeshes = [];
-
-function parseRectInfo(commands) {
-    // Parse rectInfo text lines
-    // First, remove current rects.
-    rectMeshes.forEach((m) => {
-        scene.remove(m);
-        m.material.dispose();
-        m.geometry.dispose();        
-    });
-    // First parse commands.
-    const rectLines = commands.split("\n");
-    const re = new RegExp(/^(\*?)([+-]?\d+(\.(\d+)?)?),([+-]?\d+(\.(\d+)?)?),([+-]?\d+(\.(\d+)?)?),([+-]?\d+(\.(\d+)?)?),([+-]?\d+(\.(\d+)?)?),([+-]?\d+(\.(\d+)?)?)$/);
-    const rects = [];
-    let lineno = 1;
-    rectLines.forEach((line) => {
-        if (line === '') {
-            // empty line
-            return; // continue
-        }
-        // console.log(line);
-        const m = line.match(re);
-        // console.log(m);
-        if (m) {
-            const lx = parseFloat(m[2]);
-            const ly = parseFloat(m[5]);
-            const lz = parseFloat(m[8]);
-            const x = parseFloat(m[11]);
-            const y = parseFloat(m[14]);
-            const z = parseFloat(m[17]);
-            // console.log(lx, ly, lz, x, y, z);
-            rects.push([lx, ly, lz, x, y, z]);
-            // x, y, z --> x, z, -y
-            const prismGeometry = new THREE.BoxGeometry(lx, lz, ly);  // Width, Height, Depth of the rectangular prism
-            let material = rectMaterial;
-            if (m[1] !== '') {
-                material = highlightMaterial;
-            }
-            const mesh = new THREE.Mesh(prismGeometry, material);
-            scene.add(mesh);
-            mesh.position.x = x;
-            mesh.position.y = z;
-            mesh.position.z = -y;
-            rectMeshes.push(mesh);
-        } else {
-            errorMessage.value = 'error: cannot parse line ' + lineno;
-            console.error(errorMessage.value);
-            errorOccured.value = true;
-        }
-        ++lineno;
-    });
-    numRects.value = rects.length;
-    // console.log(compiledMotions);
-    return !errorOccured.value;
+function clearRectMeshes() {
+  for (const m of rectMeshes) {
+    scene.remove(m);
+    // materialは共有なのでdisposeしない（rectMaterial/highlightMaterial）
+    m.geometry.dispose();
+  }
+  rectMeshes.length = 0;
 }
 
+let rafId: number | null = null;
+
 function animate() {
-    requestAnimationFrame(animate);
+    rafId = requestAnimationFrame(animate);
 
     renderer.render(scene, camera);
 
@@ -469,7 +468,11 @@ function animate() {
 
 function onResize()
 {
-    const width = document.getElementById("controllerBox")!.scrollWidth;
+  const el = document.getElementById("controllerBox");
+  if (!el) {
+    return;
+  }
+    const width = el.scrollWidth;
     const height = width / 16 * 9;
 
     // レンダラーのサイズを調整する
@@ -481,5 +484,20 @@ function onResize()
     camera.updateProjectionMatrix();
 }
 
+onUnmounted(() => {
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId);
+    rafId = null;
+  }
+  window.removeEventListener('resize', onResize);
+  
+  // Rectは個別geometryをdispose（materialは共有なのでdisposeしない）
+  clearRectMeshes();
 
+  // STL meshも後述の変数でdisposeする（P0-4）
+  disposeStlMesh();
+
+  controls.dispose();
+  renderer.dispose();
+});
 </script>
