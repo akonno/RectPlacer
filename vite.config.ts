@@ -8,7 +8,6 @@ export default defineConfig({
     plugins: [vue()],
     base: "/RectPlacer/",
   root: resolve(__dirname, "src"),
-  publicDir: resolve(__dirname, "public"),
   build: {
     outDir: resolve(__dirname, "dist"),
     emptyOutDir: true,

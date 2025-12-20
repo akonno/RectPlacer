@@ -184,7 +184,7 @@ onMounted(() => {
   }
   try {
       three = new RectPlacerThree();
-    three.mount(containerRef.value);
+      three.mount(containerRef.value);
   } catch (e) {
       errorMessage.value = t("message.webglnotsupported");
       errorOccured.value = true;

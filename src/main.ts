@@ -41,7 +41,9 @@ const messages = {
             screenshot: 'Take screenshot',
             saveRects: 'Save data as CSV',
             selectSTLFile: 'Upload STL file',
-            showAxes: 'Show Axes'
+            showAxes: 'Show Axes',
+            // error messages
+            webglnotsupported: 'WebGL is not supported in this environment.',
         },
     },
     ja: {
@@ -54,7 +56,9 @@ const messages = {
             screenshot: '画像を保存',
             saveRects: '矩形データを保存',
             selectSTLFile: 'STLファイルをアップロード',
-            showAxes: '座標軸を表示'
+            showAxes: '座標軸を表示',
+            // error messages
+            webglnotsupported: 'この環境ではWebGLがサポートされていません。',
         },
     }
 };

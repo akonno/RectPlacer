@@ -4,6 +4,33 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import { RectDefinition, toRenderPos } from "../domain/rect";
 
+// Import texture URLs
+import skyTextureUrl from "/assets/textures/skytile1.png";
+import groundTextureUrl from "/assets/textures/PavingStones128/PavingStones128_1K-JPG_Color.jpg";
+
+// Track disposable resources
+type Disposable = { dispose: () => void };
+
+class ResourceTracker {
+  private resources = new Set<Disposable>();
+
+  track<T extends Disposable>(res: T): T {
+    this.resources.add(res);
+    return res;
+  }
+
+  // Material は配列の場合があるのでヘルパ
+  trackMaterial(mat: THREE.Material | THREE.Material[]) {
+    if (Array.isArray(mat)) mat.forEach((m) => this.track(m));
+    else this.track(mat);
+  }
+
+  disposeAll() {
+    for (const res of this.resources) res.dispose();
+    this.resources.clear();
+  }
+}
+
 export class RectPlacerThree {
     private scene = new THREE.Scene();
     private camera = new THREE.PerspectiveCamera(45, 16/9, 0.1, 1000);
@@ -31,10 +58,18 @@ export class RectPlacerThree {
         } else {
             if (this.axes) {
                 this.scene.remove(this.axes);
+                // AxesHelper is toggled on/off during runtime, so we dispose it manually (not tracked).
+                this.axes.geometry.dispose();
+                // AxesHelper.material は LineBasicMaterial または配列の場合がある
+                const mat = this.axes.material;
+                if (Array.isArray(mat)) mat.forEach(m => m.dispose());
+                else mat.dispose();
                 this.axes = null;
             }
         }
     }
+
+    private res = new ResourceTracker();
 
     // 共有material（disposeしない）
     private rectMaterial = new THREE.MeshPhongMaterial({
@@ -61,7 +96,9 @@ export class RectPlacerThree {
     }
 
     mount(container: HTMLElement) {
-        container.appendChild(this.renderer.domElement);
+        if (this.renderer.domElement.parentElement !== container) {
+            container.appendChild(this.renderer.domElement);
+        }
         this.start();
     }
 
@@ -76,15 +113,15 @@ export class RectPlacerThree {
         this.clearRectMeshes();
 
         for (const r of rects) {
-        const geom = new THREE.BoxGeometry(r.size.lx, r.size.lz, r.size.ly);
-        const mat = r.highlighted ? this.highlightMaterial : this.rectMaterial;
-        const mesh = new THREE.Mesh(geom, mat);
+            const geom = new THREE.BoxGeometry(r.size.lx, r.size.lz, r.size.ly);
+            const mat = r.highlighted ? this.highlightMaterial : this.rectMaterial;
+            const mesh = new THREE.Mesh(geom, mat);
 
-        const p = toRenderPos(r.pos);
-        mesh.position.set(p.x, p.y, p.z);
+            const p = toRenderPos(r.pos);
+            mesh.position.set(p.x, p.y, p.z);
 
-        this.scene.add(mesh);
-        this.rectMeshes.push(mesh);
+            this.scene.add(mesh);
+            this.rectMeshes.push(mesh);
         }
     }
 
@@ -93,8 +130,8 @@ export class RectPlacerThree {
         this.disposeStlMesh();
 
         const loader = new STLLoader();
-        const geom = loader.parse(buf);
-        const mat = new THREE.MeshPhongMaterial({ color: 0xff5555, specular: 0x111111, shininess: 200 });
+        const geom = this.res.track(loader.parse(buf));
+        const mat = this.res.track(new THREE.MeshPhongMaterial({ color: 0xff5555, specular: 0x111111, shininess: 200 }));
         this.stlMesh = new THREE.Mesh(geom, mat);
         this.stlMesh.rotateX(-Math.PI / 2);
         this.scene.add(this.stlMesh);
@@ -106,6 +143,7 @@ export class RectPlacerThree {
         this.clearRectMeshes();
         this.disposeStlMesh();
 
+        this.res.disposeAll();
         this.controls.dispose();
         this.renderer.dispose();
 
@@ -164,6 +202,9 @@ export class RectPlacerThree {
         light2.position.z = 10;
         this.scene.add(light2);
 
+        // Background
+        this.scene.background = new THREE.Color(0xcce0ff);
+
         // Camera position
         // normal
         this.camera.position.x = -1;
@@ -193,82 +234,146 @@ export class RectPlacerThree {
         };
 
         // Ground
-        const groundGeometry = new THREE.BoxGeometry(5000, 0.1, 5000);
-        const groundMaterial = new THREE.MeshLambertMaterial({color: 0xc2c2c2});
+        const groundGeometry = this.res.track(new THREE.PlaneGeometry(5000, 5000));
+        const groundMaterial = this.res.track(new THREE.MeshLambertMaterial({color: 0xc2c2c2}));
         const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.rotateX(-Math.PI / 2);
         ground.position.y = -2;
         this.scene.add(ground);
 
         loadTexture(
-        `${import.meta.env.BASE_URL}/textures/PavingStones128/PavingStones128_1K-JPG_Color.jpg`,
-        (tex) => {
-            tex.wrapS = THREE.RepeatWrapping;
-            tex.wrapT = THREE.RepeatWrapping;
-            tex.repeat.set(2500, 2500);
-            (ground.material as THREE.MeshLambertMaterial).map = tex;
-            (ground.material as THREE.MeshLambertMaterial).color = new THREE.Color(0xffffff);
-            (ground.material as THREE.MeshLambertMaterial).needsUpdate = true;
-        }
+            groundTextureUrl,
+            (tex) => {
+                this.res.track(tex);
+                tex.wrapS = THREE.RepeatWrapping;
+                tex.wrapT = THREE.RepeatWrapping;
+                tex.repeat.set(2500, 2500);
+                (ground.material as THREE.MeshLambertMaterial).map = tex;
+                (ground.material as THREE.MeshLambertMaterial).color = new THREE.Color(0xffffff);
+                (ground.material as THREE.MeshLambertMaterial).needsUpdate = true;
+            }
         );
 
         // Sky
-        const skyGeometry = new THREE.BoxGeometry(5000, 0.1, 5000);
-        const skyMaterial = new THREE.MeshBasicMaterial({color: 0xaecbe8});
+        const skyGeometry = this.res.track(new THREE.PlaneGeometry(5000, 5000));
+        const skyMaterial = this.res.track(new THREE.MeshBasicMaterial({color: 0xaecbe8}));
         const sky = new THREE.Mesh(skyGeometry, skyMaterial);
+        sky.rotation.x += Math.PI / 2;
         sky.position.y = 15.0;
-        // sky.rotation.z += -0.016;
         this.scene.add(sky);
 
         loadTexture(
-        `${import.meta.env.BASE_URL}/textures/skytile1.png`,
-        (tex) => {
-            tex.wrapS = THREE.RepeatWrapping;
-            tex.wrapT = THREE.RepeatWrapping;
-            tex.repeat.set(25, 25);
-            (sky.material as THREE.MeshBasicMaterial).map = tex;
-            (sky.material as THREE.MeshBasicMaterial).color = new THREE.Color(0xffffff);
-            (sky.material as THREE.MeshBasicMaterial).needsUpdate = true;
-        }
+            skyTextureUrl,
+            (tex) => {
+                this.res.track(tex);
+                tex.wrapS = THREE.RepeatWrapping;
+                tex.wrapT = THREE.RepeatWrapping;
+                tex.repeat.set(25, 25);
+                (sky.material as THREE.MeshBasicMaterial).map = tex;
+                (sky.material as THREE.MeshBasicMaterial).color = new THREE.Color(0xffffff);
+                (sky.material as THREE.MeshBasicMaterial).needsUpdate = true;
+            }
         );
 
-        // Far walls
-        const wallSNGeometry = new THREE.BoxGeometry(4000, 100, 1);
-        const wallMaterial = new THREE.MeshBasicMaterial({color: 0xaecbe8});
-        const wallS = new THREE.Mesh(wallSNGeometry, wallMaterial);
-        wallS.position.z = -600;
-        // wall.position.z = 0;
-        this.scene.add(wallS);
+        // Far walls (no thickness)
+        const wallHeight = 100;
+        const wallSpan = 4000;
+        const wallDistance = 600;
 
+        // 先に壁を作ってsceneに追加（materialのmapは後で入れる）
+        type WallSpec = {
+            name: string;
+            width: number;
+            height: number;
+            pos: THREE.Vector3;
+            rotY: number;
+            repeat: { x: number; y: number };
+        };
+
+        const wallSpecs: WallSpec[] = [
+        // South / North : X方向に長い壁、Zに配置
+        {
+            name: "S",
+            width: wallSpan,
+            height: wallHeight,
+            pos: new THREE.Vector3(0, wallHeight / 2, -wallDistance),
+            rotY: 0,
+            repeat: { x: 20, y: 1 },
+        },
+        {
+            name: "N",
+            width: wallSpan,
+            height: wallHeight,
+            pos: new THREE.Vector3(0, wallHeight / 2, wallDistance),
+            rotY: Math.PI, // 反対向き
+            repeat: { x: 20, y: 1 },
+        },
+
+        // West / East : Z方向に長い壁、Xに配置（Y回転90度）
+        {
+            name: "W",
+            width: wallSpan,
+            height: wallHeight,
+            pos: new THREE.Vector3(-wallDistance, wallHeight / 2, 0),
+            rotY: Math.PI / 2,
+            repeat: { x: 20, y: 1 },
+        },
+        {
+            name: "E",
+            width: wallSpan,
+            height: wallHeight,
+            pos: new THREE.Vector3(wallDistance, wallHeight / 2, 0),
+            rotY: -Math.PI / 2,
+            repeat: { x: 20, y: 1 },
+        },
+        ];
+
+        const walls: THREE.Mesh[] = [];
+
+        for (const spec of wallSpecs) {
+        const geom = this.res.track(new THREE.PlaneGeometry(spec.width, spec.height));
+        const mat = this.res.track(new THREE.MeshBasicMaterial({
+            color: 0xaecbe8,
+            side: THREE.DoubleSide, // 内側からも見えるように
+        }));
+        const wall = new THREE.Mesh(geom, mat);
+
+        wall.position.copy(spec.pos);
+        wall.rotation.y = spec.rotY;
+
+        this.scene.add(wall);
+        walls.push(wall);
+        }
+
+        // テクスチャは1回ロードして、全壁に適用する
         loadTexture(
-        `${import.meta.env.BASE_URL}/textures/skytile1.png`,
-        (tex) => {
-            tex.wrapS = THREE.RepeatWrapping;
-            tex.wrapT = THREE.RepeatWrapping;
-            tex.repeat.set(20, 1);
-            (wallS.material as THREE.MeshBasicMaterial).map = tex;
-            (wallS.material as THREE.MeshBasicMaterial).color = new THREE.Color(0xffffff);
-            (wallS.material as THREE.MeshBasicMaterial).needsUpdate = true;
-        }
+            skyTextureUrl,
+            (tex) => {
+                this.res.track(tex);
+                tex.wrapS = THREE.RepeatWrapping;
+                tex.wrapT = THREE.RepeatWrapping;
+                tex.repeat.set(20, 1);
+
+                // ★同じTextureを共有しつつ、repeatだけ変えたい場合は壁ごとに clone が必要
+                // 今回は全壁同じrepeatで良ければ「共有」でOK
+                for (const wall of walls) {
+                    const mat = wall.material as THREE.MeshBasicMaterial;
+                    mat.map = tex;
+                    mat.color = new THREE.Color(0xffffff);
+                    mat.needsUpdate = true;
+                }
+            },
+            (err) => {
+                console.warn("[wall] texture load failed", err);
+            }
         );
-
-        const wallN = new THREE.Mesh(wallSNGeometry, wallMaterial);
-        wallN.position.z = 600;
-        // wall.position.z = 0;
-        this.scene.add(wallN);
-
-        const wallWEGeometry = new THREE.BoxGeometry(1, 100, 4000);
-        const wallW = new THREE.Mesh(wallWEGeometry, wallMaterial);
-        wallW.position.x = -600;
-        // wall.position.z = 0;
-        this.scene.add(wallW);
-
-        const wallE = new THREE.Mesh(wallWEGeometry, wallMaterial);
-        wallE.position.x = 600;
-        // wall.position.z = 0;
-        this.scene.add(wallE);
 
         // Axes
         this.showAxes = this.showAxesFlag;
+
+        // Controls
+        this.controls.target.set(0, 0, 0);
+        this.controls.update();
     }
 
     private start() {
@@ -298,10 +403,6 @@ export class RectPlacerThree {
     private disposeStlMesh() {
         if (!this.stlMesh) return;
         this.scene.remove(this.stlMesh);
-        this.stlMesh.geometry.dispose();
-        const mat = this.stlMesh.material;
-        if (Array.isArray(mat)) mat.forEach(m => m.dispose());
-        else mat.dispose();
         this.stlMesh = null;
     }
 }
