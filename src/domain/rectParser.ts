@@ -1,4 +1,8 @@
 // src/domain/rectParser.ts
+// Last Modified: 2025/12/21 10:51:31
+// Copyright (C) 2024-2025 KONNO Akihisa <konno@researchers.jp>
+
+// Parser for rectangle definitions
 import { RectDefinition, ParseError, isFiniteNumber } from "./rect";
 
 const LINE_RE =

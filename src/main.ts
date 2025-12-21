@@ -1,4 +1,5 @@
 // RectPlacer - place rectangular prisms onto the scene
+// Last Modified: 2025/12/21 11:35:36
 // Copyright (C) 2024 KONNO Akihisa <konno@researchers.jp>
 
 /*
@@ -43,6 +44,7 @@ const messages = {
             selectSTLFile: 'Upload STL file',
             showAxes: 'Show Axes',
             numberOfRectangles: 'Number of rectangles: {count}',
+            parsingRectangles: 'Parsing rectangle definitions...',
             // error messages
             webglnotsupported: 'WebGL is not supported in this environment.',
         },
@@ -59,6 +61,7 @@ const messages = {
             selectSTLFile: 'STLファイルをアップロード',
             showAxes: '座標軸を表示',
             numberOfRectangles: '矩形の数: {count}',
+            parsingRectangles: '矩形定義を解析中...',
             // error messages
             webglnotsupported: 'この環境ではWebGLがサポートされていません。',
         },

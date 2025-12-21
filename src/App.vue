@@ -1,4 +1,5 @@
 // src/App.vue
+// Last Modified: 2025/12/21 13:19:44
 <template>
 	<div v-cloak>
 		<section class="hero">
@@ -35,6 +36,9 @@
 		</section>
 		<section class="section">
 			<div class="container" ref="containerRef"></div>
+      <div v-if="!systemStatus.ok" class="notification is-danger">
+        {{ systemStatus.message }}
+      </div>
 		<div class="container">
 			<div class="box" id="controllerBox">
 				<div class="columns">
@@ -43,13 +47,10 @@
 						<div class="control has-icons-right">
 							<textarea class="textarea" id="rectInfo" v-model="rectInfo"></textarea>
 						</div>
+            <div class="content is-size-7" :class="{ 'has-text-danger': rectStatus.ok === 'error' }" style="white-space: pre-line">{{ rectStatus.message }}</div>
 						<label>{{ $t("message.howtohighlight") }}</label>
-            <div class="content is-size-7">{{ numRectsMessage }}</div>
 					</div>
 					<div class="column">
-            <div v-if="errorOccured" class="notification is-danger">
-              {{ errorMessage }}
-            </div>
 						<div class="file">
 							<label class="file-label">
 								<input class="file-input" type="file" @change="onSTLUploaded" />
@@ -105,7 +106,7 @@
 
 <script setup lang="ts">
 	// RectPlacer - place rectangular prisms onto the scene
-// Copyright (C) 2024 KONNO Akihisa <konno@researchers.jp>
+// Copyright (C) 2024-2025 KONNO Akihisa <konno@researchers.jp>
 
 /*
 MIT License
@@ -131,22 +132,27 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { ref, reactive, onMounted, onUnmounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 
 import { parseRectInfo } from "./domain/rectParser";
 import { RectPlacerThree } from "./three/rectPlacerThree";
 
 const containerRef = ref<HTMLElement | null>(null);
+const systemStatus = reactive({
+  ok: true,
+  message: '',
+});
+const rectStatus = reactive({
+  ok: 'ok' as 'ok' | 'error' | 'pending',
+  message: '',
+});
 
 const { t, locale } = useI18n();
 
 const rectInfo = ref("0.1,0.1,0.3,0.2,0,0.2");  // sample data
 const selectedLocale = ref('');
 const showAxes = ref(true);
-const errorOccured = ref(false);
-const errorMessage = ref('');
-const numRectsMessage = ref('');
 
 let three: RectPlacerThree | null = null;
 
@@ -167,96 +173,27 @@ function saveRects()
 	a.download = 'rects.csv';
 	a.click();
 }
-function onSTLUploaded(e)
+
+// Handle STL file upload
+function onSTLUploaded(e: Event)
 {
 	// event(=e)から画像データを取得する
-	const stlFile = e.target.files[0]
+	const stlFile = (e.target as HTMLInputElement).files![0]
 	console.log(stlFile.name);
 	loadSTLFromFile(stlFile)
 }
-function switchLocale()
-{
-	locale.value = selectedLocale.value;
-	// console.log('locale is changed to ', this.$i18n.locale);
-}
 
-onMounted(() => {
-  // Initialize Three.js renderer
-  if (!containerRef.value) {
-    return;
-  }
-  try {
-      three = new RectPlacerThree();
-      three.mount(containerRef.value);
-  } catch (e) {
-      errorMessage.value = t("message.webglnotsupported");
-      errorOccured.value = true;
-      return;
-  }
-
-  const { rects, errors } = parseRectInfo(rectInfo.value);
-  if (errors.length > 0) {
-    errorMessage.value = errors.map(e => `Line ${e.line}: ${e.message}`).join("\n");
-    errorOccured.value = true;
-  } else {
-    errorMessage.value = '';
-    numRectsMessage.value = t("message.numberOfRectangles", { count: rects.length });
-    three.setRects(rects);
-  }
-
-	const width = containerRef.value!.scrollWidth;
-	// document.getElementById("canvas")!.appendChild(renderer.domElement);
-
-	onResize();
-	window.addEventListener('resize', onResize);
-});
-
-// Watchers
-watch(rectInfo, (newText) => {
-  if (!three) {
-    return;
-  }
-  const { rects, errors } = parseRectInfo(newText);
-  if (errors.length > 0) {
-    errorMessage.value = errors.map(e => `Line ${e.line}: ${e.message}`).join("\n");
-    errorOccured.value = true;
-  } else {
-    errorOccured.value = false;
-    errorMessage.value = '';
-    numRectsMessage.value = t("message.numberOfRectangles", { count: rects.length });
-    three.setRects(rects);
-  }
-});
-
-watch(showAxes, (newVal) => {
-  if (three) {
-    three.showAxes = newVal;
-  }
-}, { immediate: true });
-
-// XXX: Coordinates of Three.js:
-// y ^
-//   |
-//   |
-//   +--------> x
-//  /
-// /z
-// z: from the back of the screen towards the front
-//
-// Coordinetes in this program:
-// z ^  y
-//   | /
-//   |/
-//   +--------> x
-// y: from the front of the screen towards the back
-
-// Load STL
-function loadSTLFromFile(aFile)
+function loadSTLFromFile(aFile: File)
 {
   if (!three) {
     return;
   }
   three.loadStl(aFile);
+}
+
+function switchLocale()
+{
+	locale.value = selectedLocale.value;
 }
 
 function onResize()
@@ -271,9 +208,82 @@ function onResize()
     three.resize(width, height);
 }
 
+// debouncing rectInfo update
+let rectTimer: number | null = null;
+
+function scheduleApplyRects(text: string, delayMs = 200) {
+  rectStatus.ok = "pending"; // 入力中はとりあえずpending
+  rectStatus.message = t("message.parsingRectangles");
+
+  if (rectTimer) window.clearTimeout(rectTimer);
+
+  rectTimer = window.setTimeout(() => {
+    const { rects, errors } = parseRectInfo(text);
+      if (errors.length > 0) {
+        rectStatus.message = errors.map(e => `Line ${e.line}: ${e.message}`).join("\n");
+        rectStatus.ok = 'error';
+      } else {
+        three?.setRects(rects);
+        rectStatus.message = t("message.numberOfRectangles", { count: rects.length });
+        rectStatus.ok = 'ok';
+      }
+  }, delayMs);
+}
+
+// Lifecycle hooks
+onMounted(() => {
+  // Initialize Three.js renderer
+  if (!containerRef.value) {
+    return;
+  }
+  try {
+      three = new RectPlacerThree();
+      three.mount(containerRef.value);
+      systemStatus.ok = true;
+  } catch (e) {
+      systemStatus.message = t("message.webglnotsupported");
+      systemStatus.ok = false;
+      return;
+  }
+
+  const { rects, errors } = parseRectInfo(rectInfo.value);
+  if (errors.length > 0) {
+    rectStatus.message = errors.map(e => `Line ${e.line}: ${e.message}`).join("\n");
+    rectStatus.ok = 'error';
+  } else {
+    rectStatus.message = t("message.numberOfRectangles", { count: rects.length });
+    rectStatus.ok = 'ok';
+    three.setRects(rects);
+  }
+
+	const width = containerRef.value!.scrollWidth;
+	// document.getElementById("canvas")!.appendChild(renderer.domElement);
+
+	onResize();
+	window.addEventListener('resize', onResize);
+});
+
 onUnmounted(() => {
+  if (rectTimer) {
+    window.clearTimeout(rectTimer);
+    rectTimer = null;
+  }
   window.removeEventListener('resize', onResize);
   three?.dispose();
   three = null;
 });
+
+// Watchers
+watch(rectInfo, (newText: string) => {
+  if (!three) {
+    return;
+  }
+  scheduleApplyRects(newText);
+});
+
+watch(showAxes, (newVal: boolean) => {
+  if (three) {
+    three.showAxes = newVal;
+  }
+}, { immediate: true });
 </script>

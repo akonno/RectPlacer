@@ -1,4 +1,8 @@
 // src/three/rectPlacerThree.ts
+// Last Modified: 2025/12/21 15:20:26
+// Copyright (C) 2024-2025 KONNO Akihisa <konno@researchers.jp>
+
+// Three.js based implementation of RectPlacer
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
@@ -31,11 +35,30 @@ class ResourceTracker {
   }
 }
 
+// XXX: Coordinates of Three.js:
+// y ^
+//   |
+//   |
+//   +--------> x
+//  /
+// /z
+// z: from the back of the screen towards the front
+//
+// Coordinetes in this program:
+// z ^  y
+//   | /
+//   |/
+//   +--------> x
+// y: from the front of the screen towards the back
+
 export class RectPlacerThree {
+    private alive = true;
     private scene = new THREE.Scene();
     private camera = new THREE.PerspectiveCamera(45, 16/9, 0.1, 1000);
     private renderer: THREE.WebGLRenderer;
     private controls: OrbitControls;
+
+    private skyTexturePromise: Promise<THREE.Texture> | null = null;
 
     private rafId: number | null = null;
     private stlMesh: THREE.Mesh | null = null;
@@ -103,6 +126,7 @@ export class RectPlacerThree {
     }
 
     resize(width: number, height: number) {
+        if (!this.alive) return;
         this.renderer.setPixelRatio(window.devicePixelRatio);
         this.renderer.setSize(width, height);
         this.camera.aspect = width / height;
@@ -138,6 +162,7 @@ export class RectPlacerThree {
     }
 
     dispose() {
+        this.alive = false;
         this.stop();
 
         this.clearRectMeshes();
@@ -189,6 +214,35 @@ export class RectPlacerThree {
 
     // ---- private ----
 
+    private loadSkyTexture(): Promise<THREE.Texture> {
+        if (this.skyTexturePromise) {
+            return this.skyTexturePromise;
+        }
+
+        this.skyTexturePromise = new Promise((resolve, reject) => {
+            const loader = new THREE.TextureLoader();
+            loader.load(
+                skyTextureUrl,
+                (tex) => {
+                    if (!this.alive) {
+                        tex.dispose();
+                        reject(new Error("RectPlacerThree is already disposed."));
+                        return;
+                    }
+                    this.res.track(tex);
+                    resolve(tex);
+                },
+                undefined,
+                (err) => {
+                    console.warn("[sky] texture load failed", err);
+                    reject(err);
+                }
+            );
+        });
+
+        return this.skyTexturePromise;
+    }
+
     private initScene() {
         // ここに lights, axes, camera初期位置など、今App.vueにある初期化を移植
 
@@ -224,7 +278,13 @@ export class RectPlacerThree {
             const loader = new THREE.TextureLoader();
             loader.load(
                 url,
-                (tex) => onLoad(tex),
+                (tex) => {
+                    if (!this.alive) {
+                        tex.dispose();
+                        return;
+                    }
+                    onLoad(tex);
+                },
                 undefined,
                 (err) => {
                 console.warn(`[texture] failed to load: ${url}`, err);
@@ -262,18 +322,24 @@ export class RectPlacerThree {
         sky.position.y = 15.0;
         this.scene.add(sky);
 
-        loadTexture(
-            skyTextureUrl,
+        this.loadSkyTexture().then(
             (tex) => {
-                this.res.track(tex);
-                tex.wrapS = THREE.RepeatWrapping;
-                tex.wrapT = THREE.RepeatWrapping;
-                tex.repeat.set(25, 25);
-                (sky.material as THREE.MeshBasicMaterial).map = tex;
+                if (!this.alive) {
+                    return;
+                }
+                const skyTex = tex.clone();
+                this.res.track(skyTex);
+                skyTex.wrapS = THREE.RepeatWrapping;
+                skyTex.wrapT = THREE.RepeatWrapping;
+                skyTex.repeat.set(25, 25);
+                (sky.material as THREE.MeshBasicMaterial).map = skyTex;
                 (sky.material as THREE.MeshBasicMaterial).color = new THREE.Color(0xffffff);
                 (sky.material as THREE.MeshBasicMaterial).needsUpdate = true;
             }
-        );
+        )
+        .catch((err) => {
+            console.warn("Sky texture load failed:", err);
+        });
 
         // Far walls (no thickness)
         const wallHeight = 100;
@@ -346,27 +412,30 @@ export class RectPlacerThree {
         }
 
         // テクスチャは1回ロードして、全壁に適用する
-        loadTexture(
-            skyTextureUrl,
+        this.loadSkyTexture().then(
             (tex) => {
-                this.res.track(tex);
-                tex.wrapS = THREE.RepeatWrapping;
-                tex.wrapT = THREE.RepeatWrapping;
-                tex.repeat.set(20, 1);
+                if (!this.alive) {
+                    return;
+                }
+                const skyTex = tex.clone();
+                this.res.track(skyTex);
+                skyTex.wrapS = THREE.RepeatWrapping;
+                skyTex.wrapT = THREE.RepeatWrapping;
+                skyTex.repeat.set(20, 1);
 
                 // ★同じTextureを共有しつつ、repeatだけ変えたい場合は壁ごとに clone が必要
                 // 今回は全壁同じrepeatで良ければ「共有」でOK
                 for (const wall of walls) {
                     const mat = wall.material as THREE.MeshBasicMaterial;
-                    mat.map = tex;
+                    mat.map = skyTex;
                     mat.color = new THREE.Color(0xffffff);
                     mat.needsUpdate = true;
                 }
-            },
-            (err) => {
-                console.warn("[wall] texture load failed", err);
             }
-        );
+        )
+        .catch((err) => {
+            console.warn("Wall texture load failed:", err);
+        });
 
         // Axes
         this.showAxes = this.showAxesFlag;
