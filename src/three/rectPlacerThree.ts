@@ -1,5 +1,5 @@
 // src/three/rectPlacerThree.ts
-// Last Modified: 2025/12/21 15:20:26
+// Last Modified: 2025/12/21 19:08:41
 // Copyright (C) 2024-2025 KONNO Akihisa <konno@researchers.jp>
 
 // Three.js based implementation of RectPlacer
@@ -62,6 +62,11 @@ export class RectPlacerThree {
 
     private rafId: number | null = null;
     private stlMesh: THREE.Mesh | null = null;
+
+    // ---- InstancedMesh (Rect) ----
+    private rectInst: THREE.InstancedMesh | null = null;
+    private highlightInst: THREE.InstancedMesh | null = null;
+    private maxRects = 200000;
 
     // Axes helper
     private axes: THREE.AxesHelper | null = null;
@@ -134,19 +139,43 @@ export class RectPlacerThree {
     }
 
     setRects(rects: RectDefinition[]) {
-        this.clearRectMeshes();
+        if (!this.rectInst || !this.highlightInst) {
+            console.warn("InstancedMesh for rects is not initialized.");
+            return;
+        }
+
+        let nNormal = 0;
+        let nHi = 0;
+
+        const m = new THREE.Matrix4();
+        const q = new THREE.Quaternion(); // 回転なし
+        const pos = new THREE.Vector3();
+        const scl = new THREE.Vector3();
 
         for (const r of rects) {
-            const geom = new THREE.BoxGeometry(r.size.lx, r.size.lz, r.size.ly);
-            const mat = r.highlighted ? this.highlightMaterial : this.rectMaterial;
-            const mesh = new THREE.Mesh(geom, mat);
+            // BoxGeometryは(1,1,1)基準で作ってあるので、scaleでサイズを表す
+            // あなたの既存コードは BoxGeometry(lx,lz,ly) だったので、それに合わせて scale を組む
+            scl.set(r.size.lx, r.size.lz, r.size.ly);
 
             const p = toRenderPos(r.pos);
-            mesh.position.set(p.x, p.y, p.z);
+            pos.set(p.x, p.y, p.z);
 
-            this.scene.add(mesh);
-            this.rectMeshes.push(mesh);
+            m.compose(pos, q, scl);
+
+            if (r.highlighted) {
+                this.highlightInst.setMatrixAt(nHi, m);
+                nHi++;
+            } else {
+                this.rectInst.setMatrixAt(nNormal, m);
+                nNormal++;
+            }
         }
+
+        this.rectInst.count = nNormal;
+        this.highlightInst.count = nHi;
+
+        this.rectInst.instanceMatrix.needsUpdate = true;
+        this.highlightInst.instanceMatrix.needsUpdate = true;
     }
 
     async loadStl(file: File): Promise<void> {
@@ -443,6 +472,36 @@ export class RectPlacerThree {
         // Controls
         this.controls.target.set(0, 0, 0);
         this.controls.update();
+
+        // ---- Rect InstancedMesh (P2 preparation) ----
+
+        // 単位箱ジオメトリ（サイズは instance の scale で表現する）
+        const rectGeom = this.res.track(new THREE.BoxGeometry(1, 1, 1));
+
+        // 初期確保数（まずは控えめでOK。必要になったら拡張する）
+        const initialCapacity = 1000;
+
+        // 通常Rect用 InstancedMesh
+        this.rectInst = new THREE.InstancedMesh(
+            rectGeom,
+            this.rectMaterial,
+            this.maxRects
+        );
+        this.rectInst.count = 0;
+        this.rectInst.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        this.rectInst.frustumCulled = false;
+        this.scene.add(this.rectInst);
+
+        // ハイライトRect用 InstancedMesh
+        this.highlightInst = new THREE.InstancedMesh(
+            rectGeom,
+            this.highlightMaterial,
+            this.maxRects
+        );
+        this.highlightInst.count = 0;
+        this.highlightInst.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        this.highlightInst.frustumCulled = false;
+        this.scene.add(this.highlightInst);
     }
 
     private start() {
@@ -462,11 +521,14 @@ export class RectPlacerThree {
     }
 
     private clearRectMeshes() {
-        for (const m of this.rectMeshes) {
-        this.scene.remove(m);
-        m.geometry.dispose(); // materialは共有なのでdisposeしない
+        if (this.rectInst) {
+            this.rectInst.count = 0;
+            this.rectInst.instanceMatrix.needsUpdate = true;
         }
-        this.rectMeshes.length = 0;
+        if (this.highlightInst) {
+            this.highlightInst.count = 0;
+            this.highlightInst.instanceMatrix.needsUpdate = true;
+        }
     }
 
     private disposeStlMesh() {
