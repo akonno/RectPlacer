@@ -1,5 +1,5 @@
 // src/domain/rectParser.ts
-// Last Modified: 2025/12/21 10:51:31
+// Last Modified: 2025/12/21 22:18:32
 // Copyright (C) 2024-2025 KONNO Akihisa <konno@researchers.jp>
 
 // Parser for rectangle definitions
@@ -13,7 +13,7 @@ export type RectParseResult = {
   errors: ParseError[];
 };
 
-export function parseRectInfo(text: string): RectParseResult {
+export function parseRectInfo(text: string, cursorLine?: number): RectParseResult {
   const rects: RectDefinition[] = [];
   const errors: ParseError[] = [];
 
@@ -52,10 +52,19 @@ export function parseRectInfo(text: string): RectParseResult {
       continue;
     }
 
+    let rectStatus: 'normal' | 'highlighted' | 'working';
+    if (cursorLine !== undefined && lineNo === cursorLine) {
+      rectStatus = 'working';
+    } else if (highlighted) {
+      rectStatus = 'highlighted';
+    } else {
+      rectStatus = 'normal';
+    }
+
     rects.push({
       size: { lx, ly, lz },
       pos: { x, y, z },
-      highlighted,
+      status: rectStatus,
       rawLine: raw,
     });
   }

@@ -1,5 +1,5 @@
 // src/App.vue
-// Last Modified: 2025/12/21 21:20:09
+// Last Modified: 2025/12/21 23:10:29
 <template>
 	<div v-cloak>
 		<section class="hero">
@@ -45,7 +45,17 @@
 					<div class="column">
 						<label class="label">{{ $t("message.rectInfo") }} (lx,ly,lz,x,y,z)</label>
 						<div class="control has-icons-right">
-							<textarea class="textarea" id="rectInfo" v-model="rectInfo"></textarea>
+							<textarea class="textarea" ref="rectTextAreaRef" v-model="rectInfo"
+                  @click="updateWorkingLine"
+                  @keyup.up="updateWorkingLine"
+                  @keyup.down="updateWorkingLine"
+                  @keyup.enter="updateWorkingLine"
+                  @keyup.page-up="updateWorkingLine"
+                  @keyup.page-down="updateWorkingLine"
+                  @select="updateWorkingLine"
+                  @focus="updateWorkingLine"
+                  @blur="clearWorkingLine"
+              ></textarea>
 						</div>
             <div class="content is-size-7" :class="{ 'has-text-danger': rectStatus.ok === 'error' }" style="white-space: pre-line">{{ rectStatus.message }}</div>
 						<label>{{ $t("message.howtohighlight") }}</label>
@@ -151,6 +161,7 @@ import { parseRectInfo } from "./domain/rectParser";
 import { RectPlacerThree } from "./three/rectPlacerThree";
 
 const containerRef = ref<HTMLElement | null>(null);
+const rectTextAreaRef = ref<HTMLTextAreaElement | null>(null);
 const systemStatus = reactive({
   ok: true,
   message: '',
@@ -255,15 +266,55 @@ function onResize()
 
 // debouncing rectInfo update
 let rectTimer: number | null = null;
+let workingLine = -1;
 
-function scheduleApplyRects(text: string, delayMs = 200) {
-  rectStatus.ok = "pending"; // 入力中はとりあえずpending
-  rectStatus.message = t("message.parsingRectangles");
+function getCurrentLineNumber(text: string, caret: number): number {
+  // caret は selectionStart（0-based）
+  // 行番号は 1-based にする
+  let line = 1;
+  for (let i = 0; i < caret && i < text.length; i++) {
+    if (text.charCodeAt(i) === 10) line++; // '\n'
+  }
+  return line;
+}
+
+function updateWorkingLine() {
+  if (!three) {
+    return;
+  }
+  const textarea = rectTextAreaRef.value;
+  if (!textarea) {
+    console.warn("textarea not found");
+    return;
+  }
+  const caret = textarea.selectionStart;
+  const lineNumber = getCurrentLineNumber(rectInfo.value, caret);
+  if (lineNumber === workingLine) {
+    return;
+  }
+  workingLine = lineNumber;
+
+  scheduleApplyRects(rectInfo.value, 0, "cursor"); // immediate update
+}
+
+function clearWorkingLine() {
+  if (!three) {
+    return;
+  }
+  workingLine = -1;
+  scheduleApplyRects(rectInfo.value, 0, "cursor"); // immediate update
+}
+
+function scheduleApplyRects(text: string, delayMs = 200, reason: "text" | "cursor" = "text") {
+  if (reason === "text") {
+    rectStatus.ok = "pending"; // 入力中はとりあえずpending
+    rectStatus.message = t("message.parsingRectangles");
+  }
 
   if (rectTimer) window.clearTimeout(rectTimer);
 
   rectTimer = window.setTimeout(() => {
-    const { rects, errors } = parseRectInfo(text);
+    const { rects, errors } = parseRectInfo(text, workingLine);
       if (errors.length > 0) {
         rectStatus.message = errors.map(e => `Line ${e.line}: ${e.message}`).join("\n");
         rectStatus.ok = 'error';

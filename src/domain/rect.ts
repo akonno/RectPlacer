@@ -2,10 +2,12 @@
 export type Vec3 = { x: number; y: number; z: number };
 export type Size3 = { lx: number; ly: number; lz: number };
 
+type rectStatus = 'normal' | 'highlighted' | 'working';
+
 export type RectDefinition = {
   size: Size3;
   pos: Vec3;
-  highlighted: boolean;
+  status: rectStatus;
   rawLine?: string; // 解析元行（デバッグ用、任意）
 };
 

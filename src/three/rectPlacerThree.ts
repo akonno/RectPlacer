@@ -1,5 +1,5 @@
 // src/three/rectPlacerThree.ts
-// Last Modified: 2025/12/21 21:13:04
+// Last Modified: 2025/12/21 23:16:41
 // Copyright (C) 2024-2025 KONNO Akihisa <konno@researchers.jp>
 
 // Three.js based implementation of RectPlacer
@@ -35,6 +35,10 @@ class ResourceTracker {
   }
 }
 
+const normalRectColor = new THREE.Color(0x0000ff); // Blue
+const highlightedRectColor = new THREE.Color(0x00ff00); // Green
+const workingRectColor = new THREE.Color(0x007744); // Dark Green
+
 // XXX: Coordinates of Three.js:
 // y ^
 //   |
@@ -66,7 +70,6 @@ export class RectPlacerThree {
 
     // ---- InstancedMesh (Rect) ----
     private rectInst: THREE.InstancedMesh | null = null;
-    private highlightInst: THREE.InstancedMesh | null = null;
     private maxRects = 200000;
 
     // Axes helper
@@ -102,15 +105,11 @@ export class RectPlacerThree {
 
     // 共有material（disposeしない）
     private rectMaterial = new THREE.MeshPhongMaterial({
-        color: 0x0000ff,     // Blue color
+        color: 0xffffff,     // White color
         transparent: true,
         opacity: 0.5         // Semi-transparent
+        // vertexColors: false, // doesn't work with InstancedMesh
     });
-    private highlightMaterial = new THREE.MeshPhongMaterial({
-        color: 0x00ff00,     // Green color
-        transparent: true,
-        opacity: 0.5         // Semi-transparent
-        });
 
     private rectMeshes: THREE.Mesh[] = [];
 
@@ -140,13 +139,12 @@ export class RectPlacerThree {
     }
 
     setRects(rects: RectDefinition[]) {
-        if (!this.rectInst || !this.highlightInst) {
+        if (!this.rectInst) {
             console.warn("InstancedMesh for rects is not initialized.");
             return;
         }
 
-        let nNormal = 0;
-        let nHi = 0;
+        let nRect = 0;
 
         const m = new THREE.Matrix4();
         const q = new THREE.Quaternion(); // 回転なし
@@ -163,20 +161,19 @@ export class RectPlacerThree {
 
             m.compose(pos, q, scl);
 
-            if (r.highlighted) {
-                this.highlightInst.setMatrixAt(nHi, m);
-                nHi++;
-            } else {
-                this.rectInst.setMatrixAt(nNormal, m);
-                nNormal++;
-            }
+            this.rectInst.setMatrixAt(nRect, m);
+            const rColor = r.status === 'highlighted' ? highlightedRectColor :
+                           r.status === 'working' ? workingRectColor :
+                           normalRectColor;
+            this.rectInst.setColorAt(nRect, rColor);
+            nRect++;
         }
 
-        this.rectInst.count = nNormal;
-        this.highlightInst.count = nHi;
-
+        this.rectInst.count = nRect;
         this.rectInst.instanceMatrix.needsUpdate = true;
-        this.highlightInst.instanceMatrix.needsUpdate = true;
+        if (this.rectInst.instanceColor) {
+            this.rectInst.instanceColor.needsUpdate = true;
+        }
     }
 
     async loadStl(file: File): Promise<void> {
@@ -211,7 +208,6 @@ export class RectPlacerThree {
 
         // 共有materialはここで破棄してよい（サービス寿命＝アプリ寿命なら）
         this.rectMaterial.dispose();
-        this.highlightMaterial.dispose();
     }
 
     public async takeScreenshot(filename = "screenshot.png"): Promise<void> {
@@ -497,19 +493,11 @@ export class RectPlacerThree {
         );
         this.rectInst.count = 0;
         this.rectInst.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        if (this.rectInst.instanceColor) {
+            this.rectInst.instanceColor.setUsage(THREE.DynamicDrawUsage);
+        }
         this.rectInst.frustumCulled = false;
         this.scene.add(this.rectInst);
-
-        // ハイライトRect用 InstancedMesh
-        this.highlightInst = new THREE.InstancedMesh(
-            rectGeom,
-            this.highlightMaterial,
-            this.maxRects
-        );
-        this.highlightInst.count = 0;
-        this.highlightInst.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        this.highlightInst.frustumCulled = false;
-        this.scene.add(this.highlightInst);
     }
 
     private start() {
@@ -532,10 +520,6 @@ export class RectPlacerThree {
         if (this.rectInst) {
             this.rectInst.count = 0;
             this.rectInst.instanceMatrix.needsUpdate = true;
-        }
-        if (this.highlightInst) {
-            this.highlightInst.count = 0;
-            this.highlightInst.instanceMatrix.needsUpdate = true;
         }
     }
 
