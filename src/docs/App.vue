@@ -87,15 +87,45 @@ under a 45° wind direction and 6 m/s wind speed, evaluated using cuboid regions
 <h3>Adding and Modifying Cuboids</h3>
 
 <ul>
-<li>To add a new cuboid, input its dimensions and positions in the designated text area in the format: <code>lx,ly,lz,X,Y,Z</code>.
-(<code>lx</code>, <code>ly</code>, <code>lz</code> are lengths along X, Y, Z axes respectively; Z is up)</li>
-<li>To modify an existing cuboid, change the values in the text area and the display will update automatically.</li>
-<li>To highlight an existing cuboid, put <code>*</code> at the start of the line.</li>
+	<li>To add a new cuboid, input its dimensions and positions in the designated text area in the format: <code>lx,ly,lz,X,Y,Z</code>.
+	(<code>lx</code>, <code>ly</code>, <code>lz</code> are lengths along X, Y, Z axes respectively; Z is up)</li>
+	<li>To modify an existing cuboid, change the values in the text area and the display will update automatically.</li>
+	<li>To highlight an existing cuboid, put <code>*</code> at the start of the line.</li>
+	<li>
+	To temporarily emphasize a cuboid while editing, place the text cursor on the
+	corresponding line. The cuboid on that line will be emphasized automatically.
+	</li>
 </ul>
+
+<p class="is-size-7 has-text-grey">
+This temporary highlight is cleared when the text area loses focus.
+</p>
 
 <h3>Loading a 3D Object</h3>
 
 <p>Use the file input control to load an STL file. The 3D object will appear in the virtual space once the file is loaded.</p>
+<h3>STL Scale Adjustment</h3>
+
+<p>
+STL files do not store unit information. As a result, STL models created in
+millimeters, meters, or inches may appear at different scales when loaded.
+</p>
+
+<p>
+RectPlacer provides an STL scale setting that allows users to manually adjust
+the size of the loaded STL model to match the intended physical scale.
+</p>
+
+<ul>
+  <li>Open the <em>STL Settings</em> dialog.</li>
+  <li>Set a positive scale factor.</li>
+  <li>Apply the scale to the loaded STL model.</li>
+</ul>
+
+<p>
+	Note: Scaling affects only the STL model (a display setting).
+	Cuboid dimensions remain unchanged, and the scale factor is not stored in the CSV.
+</p>
 
 <h3>Saving Cuboid Data</h3>
 
@@ -104,10 +134,12 @@ under a 45° wind direction and 6 m/s wind speed, evaluated using cuboid regions
 <h2 class="subtitle">Features</h2>
 
 <ul>
-<li><strong>Place Multiple Cuboids</strong>: Users can create and position multiple cuboids in the space. These cuboids align with the x, y, and z axes.</li>
-<li><strong>Load 3D Object from STL File</strong>: The application supports loading a 3D object from an STL file to be placed in the space.</li>
-<li><strong>Edit Cuboid Data</strong>: Users can input and edit the dimensions and positions of each cuboid directly through a text area in the UI.</li>
-<li><strong>Save Cuboid Data</strong>: The application allows saving the cuboid data (dimensions and positions) to a file for later use.</li>
+	<li><strong>Place Multiple Cuboids</strong>: Users can create and position multiple cuboids in the space. These cuboids align with the x, y, and z axes.</li>
+	<li><strong>Load 3D Object from STL File</strong>: The application supports loading a 3D object from an STL file to be placed in the space.</li>
+	<li><strong>Edit Cuboid Data</strong>: Users can input and edit the dimensions and positions of each cuboid directly through a text area in the UI.</li>
+	<li><strong>Save Cuboid Data</strong>: The application allows saving the cuboid data (dimensions and positions) to a file for later use.</li>
+	<li><strong>STL Scale Adjustment</strong>: Manually adjust the scale of loaded STL models.</li>
+	<li><strong>Cursor-based Cuboid Emphasis</strong>: Temporarily emphasize a cuboid by placing the cursor on its definition line.</li>
 </ul>
 
 <h2 class="subtitle">License</h2>
