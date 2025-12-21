@@ -1,5 +1,5 @@
 // src/three/rectPlacerThree.ts
-// Last Modified: 2025/12/21 19:08:41
+// Last Modified: 2025/12/21 21:13:04
 // Copyright (C) 2024-2025 KONNO Akihisa <konno@researchers.jp>
 
 // Three.js based implementation of RectPlacer
@@ -62,6 +62,7 @@ export class RectPlacerThree {
 
     private rafId: number | null = null;
     private stlMesh: THREE.Mesh | null = null;
+    private stlScale: number = 1.0;
 
     // ---- InstancedMesh (Rect) ----
     private rectInst: THREE.InstancedMesh | null = null;
@@ -188,6 +189,13 @@ export class RectPlacerThree {
         this.stlMesh = new THREE.Mesh(geom, mat);
         this.stlMesh.rotateX(-Math.PI / 2);
         this.scene.add(this.stlMesh);
+    }
+
+    setStlScale(scale: number) {
+        this.stlScale = scale;
+        if (this.stlMesh) {
+            this.stlMesh.scale.set(scale, scale, scale);
+        }
     }
 
     dispose() {

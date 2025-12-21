@@ -87,7 +87,8 @@ under a 45° wind direction and 6 m/s wind speed, evaluated using cuboid regions
 <h3>Adding and Modifying Cuboids</h3>
 
 <ul>
-<li>To add a new cuboid, input its dimensions and positions in the designated text area in the format: <code>Width,Height,Depth,X,Y,Z</code>.</li>
+<li>To add a new cuboid, input its dimensions and positions in the designated text area in the format: <code>lx,ly,lz,X,Y,Z</code>.
+(<code>lx</code>, <code>ly</code>, <code>lz</code> are lengths along X, Y, Z axes respectively; Z is up)</li>
 <li>To modify an existing cuboid, change the values in the text area and the display will update automatically.</li>
 <li>To highlight an existing cuboid, put <code>*</code> at the start of the line.</li>
 </ul>

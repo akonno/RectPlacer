@@ -1,5 +1,5 @@
 // src/App.vue
-// Last Modified: 2025/12/21 13:19:44
+// Last Modified: 2025/12/21 21:20:09
 <template>
 	<div v-cloak>
 		<section class="hero">
@@ -61,17 +61,14 @@
 								<span class="file-label">{{ $t("message.selectSTLFile") }}</span>
 								</span>
 							</label>
+              <button class="button is-small is-ghost" @click="showStlModal">{{ $t("message.stlSettings") }}</button>
 							</div>
 						<div class="control">
 							<label class="checkbox"><input type="checkbox" v-model="showAxes">{{ $t("message.showAxes") }}</label>
 						</div>			
-						<div class="field is-grouped">
-							<div class="control">
+						<div class="buttons">
 								<button class="button is-primary" @click="takeScreenShot"><i class="fas fa-camera"></i>{{ $t("message.screenshot") }}</button>
-							</div>
-							<div class="control">
 								<button class="button is-primary" @click="saveRects"><i class="fas fa-file-csv"></i>{{ $t("message.saveRects") }}</button>
-							</div>
 						</div>
 					</div>
 				</div>
@@ -96,6 +93,21 @@
 			</p>
 		</div>
 	</footer>
+  <!-- modal for STL settings -->
+  <div class="modal" :class="{ 'is-active': showStlModalFlag }" @close="showStlModalFlag = false">
+  <div class="modal-background" @click="showStlModalFlag = false"></div>
+  <div class="modal-content box">
+    <h2 class="subtitle">{{ $t("message.stlModalTitle") }}</h2>
+    <div class="control is-grouped">
+      <label class="label">{{ $t("message.stlScale") }}</label>
+      <input class="input" type="number" value="1.0" min="0" step="any" v-model.number="stlScale" />
+    </div>
+    <div class="buttons">
+      <button class="button is-primary" @click="applyStlScale">{{ $t("message.apply") }}</button>
+      <button class="button is-warning" @click="restorePreviousStlScale">{{ $t("message.close") }}</button>
+    </div>
+    </div>
+  </div>
 </template>
 
 <style scoped>
@@ -154,6 +166,10 @@ const rectInfo = ref("0.1,0.1,0.3,0.2,0,0.2");  // sample data
 const selectedLocale = ref('');
 const showAxes = ref(true);
 
+const showStlModalFlag = ref(false);
+const stlScale = ref(1.0);
+let prevStlScale = 1.0;
+
 let three: RectPlacerThree | null = null;
 
 // setup Vue app
@@ -189,6 +205,35 @@ function loadSTLFromFile(aFile: File)
     return;
   }
   three.loadStl(aFile);
+}
+
+// STL scale from modal
+function showStlModal()
+{
+  console.log("show STL modal");
+  showStlModalFlag.value = true;
+}
+
+function applyStlScale()
+{
+  if (stlScale.value <= 0) {
+    alert(t("message.stlScaleMustBePositive"));
+    stlScale.value = prevStlScale;
+    return;
+  }
+  if (!three) {
+    return;
+  }
+  console.log("apply STL scale: ", stlScale.value);
+  three.setStlScale(stlScale.value);
+  prevStlScale = stlScale.value;
+  showStlModalFlag.value = false;
+}
+
+function restorePreviousStlScale()
+{
+  stlScale.value = prevStlScale;
+  showStlModalFlag.value = false;
 }
 
 function switchLocale()

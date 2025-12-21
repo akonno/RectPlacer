@@ -1,5 +1,5 @@
 // RectPlacer - place rectangular prisms onto the scene
-// Last Modified: 2025/12/21 11:35:36
+// Last Modified: 2025/12/21 21:19:34
 // Copyright (C) 2024 KONNO Akihisa <konno@researchers.jp>
 
 /*
@@ -45,6 +45,14 @@ const messages = {
             showAxes: 'Show Axes',
             numberOfRectangles: 'Number of rectangles: {count}',
             parsingRectangles: 'Parsing rectangle definitions...',
+            stlSettings: 'STL Settings',
+            // modal
+            stlModalTitle: 'STL File Settings',
+            stlScale: 'Scale:',
+            stlScaleMustBePositive: 'STL scale must be a positive number.',
+            // button
+            apply: 'Apply',
+            close: 'Close',
             // error messages
             webglnotsupported: 'WebGL is not supported in this environment.',
         },
@@ -62,6 +70,14 @@ const messages = {
             showAxes: '座標軸を表示',
             numberOfRectangles: '矩形の数: {count}',
             parsingRectangles: '矩形定義を解析中...',
+            stlSettings: 'STL設定',
+            // modal
+            stlModalTitle: 'STLファイル設定',
+            stlScale: 'スケール:',
+            stlScaleMustBePositive: 'STLスケールは正の数でなければなりません。',
+            // button
+            apply: '適用',
+            close: '閉じる',
             // error messages
             webglnotsupported: 'この環境ではWebGLがサポートされていません。',
         },
