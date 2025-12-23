@@ -1,39 +1,27 @@
 // src/App.vue
-// Last Modified: 2025/12/21 23:10:29
+// Last Modified: 2025/12/23 09:49:17
 <template>
 	<div v-cloak>
-		<section class="hero">
-			<div class="hero-body">
-<div class="field is-grouped is-pulled-right">
-  <p class="control">
-    <a
-      class="button is-small is-ghost"
-      href="docs/"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      Docs
-    </a>
-  </p>
-
-  <p class="control">
-    <span class="select is-small">
-      <select id="selectLocale" v-model="selectedLocale" @change="switchLocale">
-        <option disabled value="">Language</option>
-        <option value="en">English</option>
-        <option value="ja">Japanese / 日本語</option>
-      </select>
-    </span>
-  </p>
-</div>
+		<nav class="navbar">
+			<div class="navbar-brand">
+                        <a class="navbar-item" href="#">
 				<h1 class="title">
 				{{ $t("message.rectplacertitle") }}
-				</h1>
-				<p class="subtitle">
-					{{ $t("message.rectplacerdesc") }}
-				</p>
-			</div>
-		</section>
+				</h1></a>
+                  <a class="navbar-burger" :class="{ 'is-active': isBurgerActive }" role="button" aria-label="menu" aria-expanded="false" @click="isBurgerActive=!isBurgerActive">
+              <span aria-hidden="true"></span>
+              <span aria-hidden="true"></span>
+              <span aria-hidden="true"></span>
+              <span aria-hidden="true"></span>
+          </a>
+      </div>
+      <div class="navbar-menu" :class="{ 'is-active' : isBurgerActive }">
+          <div class="navbar-end">
+              <a class="navbar-item" href="docs/" target="_blank" rel="noopener noreferrer"><span class="icon-text"><span class="icon"><i class="fa-solid fa-arrow-up-right-from-square"></i></span><span>Docs</span></span></a>
+              <button class="navbar-item" @click="toggleSettingsModal"><span class="icon-text"><span class="icon"><i class="fa-solid fa-gear"></i></span><span>Settings</span></span></button>
+          </div>
+      </div>
+		</nav>
 		<section class="section">
 			<div class="container" ref="containerRef"></div>
       <div v-if="!systemStatus.ok" class="notification is-danger">
@@ -118,6 +106,78 @@
     </div>
     </div>
   </div>
+  <!-- modal -->
+  <div class="modal" :class="{ 'is-active': isSettingsModalActive }">
+      <div class="modal-background" @click="isSettingsModalActive = false;"></div>
+      <div class="modal-content">
+          <!-- Any other Bulma elements you want -->
+          <div class="box">
+              <h2 class="subtitle">{{ $t("message.settings") }}</h2>
+              <div class="field is-grouped">
+                  <label class="label"><span class="icon-text"><span class="icon"><i class="fas fa-desktop"></i></span><span>{{ $t("message.theme") }}</span></span></label>
+                  <div class="control">
+                      <label class="radio">
+                      <input
+                          type="radio"
+                          name="theme"
+                          value="light"
+                          v-model="selectedTheme"
+                          @change="setScreenMode(selectedTheme)"
+                      />
+                      <span class="icon-text"><span class="icon"><i class="fas fa-sun"></i></span><span>{{ $t("message.light") }}</span></span>
+                      </label>
+                      <label class="radio">
+                      <input
+                          type="radio"
+                          name="theme"
+                          value="dark"
+                          v-model="selectedTheme"
+                          @change="setScreenMode(selectedTheme)"
+                      />
+                      <span class="icon-text"><span class="icon"><i class="fas fa-moon"></i></span><span>{{ $t("message.dark") }}</span></span>
+                      </label>
+                      <label class="radio">
+                      <input
+                          type="radio"
+                          name="theme"
+                          value="system"
+                          v-model="selectedTheme"
+                          @change="setScreenMode(selectedTheme)"
+                      />
+                      <span class="icon-text"><span class="icon"><i class="fas fa-desktop"></i></span><span>{{ $t("message.system") }}</span></span>
+                      </label>
+                  </div>
+              </div>
+              <div class="field is-grouped">
+                  <label class="label"><span class="icon-text"><span class="icon"><i class="fas fa-language"></i></span><span>Language</span></span></label>
+                  <div class="control">
+                      <label class="radio">
+                      <input
+                          type="radio"
+                          name="lang"
+                          value="en"
+                          v-model="selectedLocale"
+                          @change="locale = selectedLocale"
+                      />
+                      English
+                      </label>
+                      <label class="radio">
+                      <input
+                          type="radio"
+                          name="lang"
+                          value="ja"
+                          v-model="selectedLocale"
+                          @change="locale = selectedLocale"
+                      />
+                      Japanese / 日本語
+                      </label>
+                  </div>
+              </div>
+              <button class="button is-primary" @click="isSettingsModalActive = false;">{{ $t("message.close") }}</button>
+          </div>
+      </div>
+      <button class="modal-close is-large" aria-label="close" @click="isSettingsModalActive = false;"></button>
+  </div>
 </template>
 
 <style scoped>
@@ -174,14 +234,41 @@ const rectStatus = reactive({
 const { t, locale } = useI18n();
 
 const rectInfo = ref("0.1,0.1,0.3,0.2,0,0.2");  // sample data
-const selectedLocale = ref('');
+const selectedLocale = ref(locale.value);
+const selectedTheme = ref('system');
 const showAxes = ref(true);
+
+const isBurgerActive = ref(false);
+const isSettingsModalActive = ref(false);
 
 const showStlModalFlag = ref(false);
 const stlScale = ref(1.0);
 let prevStlScale = 1.0;
 
 let three: RectPlacerThree | null = null;
+
+function toggleSettingsModal()
+{
+    isSettingsModalActive.value = !isSettingsModalActive.value;
+}
+
+// 初期設定：localStorageから取得したテーマを使い、即座に`data-theme`に反映させる
+const initialTheme = localStorage.getItem('theme') || 'system';
+selectedTheme.value = initialTheme;
+document.documentElement.setAttribute('data-theme', initialTheme); // 初期テーマを適用
+const theme = ref(initialTheme);
+
+const setScreenMode = (mode_: string) => {
+    // Screen mode
+    if (mode_ == 'light' || mode_ == 'dark' || mode_ == 'system') {
+        document.documentElement.setAttribute('data-theme', mode_);
+        theme.value = mode_;
+        // Save the theme to localStorage
+        localStorage.setItem('theme', mode_);
+    } else {
+        console.error(`error: unsupported screen mode ${mode_} is specified.`);
+    }
+}
 
 // setup Vue app
 function takeScreenShot()

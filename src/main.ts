@@ -1,5 +1,5 @@
 // RectPlacer - place rectangular prisms onto the scene
-// Last Modified: 2025/12/21 21:19:34
+// Last Modified: 2025/12/23 09:44:57
 // Copyright (C) 2024 KONNO Akihisa <konno@researchers.jp>
 
 /*
@@ -50,6 +50,11 @@ const messages = {
             stlModalTitle: 'STL File Settings',
             stlScale: 'Scale:',
             stlScaleMustBePositive: 'STL scale must be a positive number.',
+            settings: 'Settings',
+            theme: 'Theme',
+            light: 'Light',
+            dark: 'Dark',
+            system: 'System',
             // button
             apply: 'Apply',
             close: 'Close',
@@ -75,6 +80,11 @@ const messages = {
             stlModalTitle: 'STLファイル設定',
             stlScale: 'スケール:',
             stlScaleMustBePositive: 'STLスケールは正の数でなければなりません。',
+            settings: '設定',
+            theme: 'テーマ',
+            light: 'ライト',
+            dark: 'ダーク',
+            system: 'システム',
             // button
             apply: '適用',
             close: '閉じる',
@@ -94,6 +104,7 @@ const i18n = createI18n({
 // Import Bulma and Font Awesome here to apply globally
 import 'bulma/css/bulma.css';
 import '@fortawesome/fontawesome-free/css/all.css';
+import { settings } from 'node:cluster';
 
 // setup Vue app
 const app = createApp(App).use(i18n).mount("#app");
