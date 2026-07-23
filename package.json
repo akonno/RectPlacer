@@ -7,7 +7,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "echo \"Error: no test specified\" && exit 0",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit",
+    "sample:generate": "node scripts/generate-sample-structure.mjs"
   },
   "repository": {
     "type": "git",

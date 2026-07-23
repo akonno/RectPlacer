@@ -292,9 +292,13 @@ function saveRects()
 function onSTLUploaded(e: Event)
 {
 	// event(=e)から画像データを取得する
-	const stlFile = (e.target as HTMLInputElement).files![0]
+	const input = e.target as HTMLInputElement;
+	const stlFile = input.files![0]
 	console.log(stlFile.name);
 	loadSTLFromFile(stlFile)
+	// Reset so selecting the same file again still fires "change"
+	// (the browser only fires it when the input's value actually changes).
+	input.value = '';
 }
 
 function loadSTLFromFile(aFile: File)

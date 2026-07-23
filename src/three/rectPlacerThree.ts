@@ -186,6 +186,7 @@ export class RectPlacerThree {
         this.stlMesh = new THREE.Mesh(geom, mat);
         this.stlMesh.rotateX(-Math.PI / 2);
         this.scene.add(this.stlMesh);
+        this.frameObject(this.stlMesh);
     }
 
     setStlScale(scale: number) {
@@ -246,6 +247,43 @@ export class RectPlacerThree {
 
 
     // ---- private ----
+
+    // Moves the camera back (keeping its current viewing direction) so
+    // `object`'s bounding sphere fits within the vertical field of view.
+    // Without this, an STL loaded at a real-world scale far from the
+    // scene's default ~1-2 unit camera distance (e.g. meters vs the
+    // default sample rects' ~0.1-0.5 units) starts up nearly inside the
+    // model instead of framing it.
+    private frameObject(object: THREE.Object3D, paddingFactor = 1.5) {
+        object.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(object);
+        if (box.isEmpty()) {
+            return;
+        }
+
+        const sphere = new THREE.Sphere();
+        box.getBoundingSphere(sphere);
+        if (!(sphere.radius > 0)) {
+            return;
+        }
+
+        const vFovRad = THREE.MathUtils.degToRad(this.camera.fov);
+        const distance = (sphere.radius / Math.sin(vFovRad / 2)) * paddingFactor;
+
+        const viewDir = new THREE.Vector3().subVectors(this.camera.position, this.controls.target);
+        if (viewDir.lengthSq() === 0) {
+            viewDir.set(-1, 1, 0.5);
+        }
+        viewDir.normalize();
+
+        this.camera.position.copy(sphere.center).addScaledVector(viewDir, distance);
+        this.camera.near = Math.max(distance / 1000, 0.001);
+        this.camera.far = distance + sphere.radius * 4 + 10;
+        this.camera.updateProjectionMatrix();
+
+        this.controls.target.copy(sphere.center);
+        this.controls.update();
+    }
 
     private loadSkyTexture(): Promise<THREE.Texture> {
         if (this.skyTexturePromise) {
