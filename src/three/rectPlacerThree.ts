@@ -7,6 +7,9 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import { RectDefinition, toRenderPos } from "../domain/rect";
+import { isValidStlScale } from "./stlScale";
+import { disposeStlMeshResources } from "./disposeStlMeshResources";
+import { computeCameraLimits } from "./cameraLimits";
 
 // Import texture URLs
 import skyTextureUrl from "/assets/textures/skytile1.png";
@@ -73,6 +76,9 @@ export class RectPlacerThree {
     private rafId: number | null = null;
     private stlMesh: THREE.Mesh | null = null;
     private stlScale: number = 1.0;
+    // Monotonically increasing token identifying the most recent loadStl()
+    // call; used to discard a stale load that resolves after a newer one.
+    private stlLoadGeneration = 0;
 
     // ---- InstancedMesh (Rect) ----
     private rectInst: THREE.InstancedMesh | null = null;
@@ -183,19 +189,40 @@ export class RectPlacerThree {
     }
 
     async loadStl(file: File): Promise<void> {
+        const generation = ++this.stlLoadGeneration;
         const buf = await file.arrayBuffer();
+        if (!this.alive || generation !== this.stlLoadGeneration) {
+            // Disposed, or superseded by a newer STL selection made while
+            // this one was still being read -- leave the scene and
+            // whatever mesh a later (or no) call has set up untouched.
+            return;
+        }
+
         this.disposeStlMesh();
 
+        // Not tracked by ResourceTracker: the STL mesh's geometry/material
+        // are short-lived and swapped out on every load, so disposeStlMesh()
+        // is their single, sole owner (see disposeStlMeshResources()).
+        // ResourceTracker is reserved for resources that live for the
+        // scene's lifetime and are only released on app dispose().
         const loader = new STLLoader();
-        const geom = this.res.track(loader.parse(buf));
-        const mat = this.res.track(new THREE.MeshPhongMaterial({ color: 0xff5555, specular: 0x111111, shininess: 200 }));
+        const geom = loader.parse(buf);
+        const mat = new THREE.MeshPhongMaterial({ color: 0xff5555, specular: 0x111111, shininess: 200 });
         this.stlMesh = new THREE.Mesh(geom, mat);
         this.stlMesh.rotateX(-Math.PI / 2);
+        // Apply the current display scale so a re-loaded/newly-loaded STL
+        // matches the scale already shown in the UI, rather than
+        // resetting to 1.
+        this.stlMesh.scale.set(this.stlScale, this.stlScale, this.stlScale);
         this.scene.add(this.stlMesh);
         this.frameObject(this.stlMesh);
     }
 
     setStlScale(scale: number) {
+        if (!isValidStlScale(scale)) {
+            console.warn(`Ignoring invalid STL scale: ${scale}`);
+            return;
+        }
         this.stlScale = scale;
         if (this.stlMesh) {
             this.stlMesh.scale.set(scale, scale, scale);
@@ -272,7 +299,18 @@ export class RectPlacerThree {
 
         const sphere = new THREE.Sphere();
         box.getBoundingSphere(sphere);
-        if (!(sphere.radius > 0)) {
+        // An extreme (but finite) STL scale can overflow the bounding
+        // sphere's center/radius to Infinity/NaN. Validate everything
+        // before touching camera state, and bail out (leaving the
+        // existing, presumably-valid camera state alone) rather than
+        // writing non-finite values into it.
+        if (
+            !(sphere.radius > 0) ||
+            !Number.isFinite(sphere.radius) ||
+            !Number.isFinite(sphere.center.x) ||
+            !Number.isFinite(sphere.center.y) ||
+            !Number.isFinite(sphere.center.z)
+        ) {
             return;
         }
 
@@ -291,6 +329,9 @@ export class RectPlacerThree {
             : vFovHalfRad;
         const limitingFovHalfRad = Math.min(vFovHalfRad, hFovHalfRad);
         const distance = (sphere.radius / Math.sin(limitingFovHalfRad)) * paddingFactor;
+        if (!Number.isFinite(distance) || distance <= 0) {
+            return;
+        }
 
         const viewDir = new THREE.Vector3().subVectors(this.camera.position, this.controls.target);
         if (viewDir.lengthSq() === 0) {
@@ -298,16 +339,42 @@ export class RectPlacerThree {
         }
         viewDir.normalize();
 
-        this.camera.position.copy(sphere.center).addScaledVector(viewDir, distance);
-        this.camera.near = Math.max(distance / 1000, 0.001);
-        // Never shrink below the default far plane: the ground/sky/walls
-        // built in initScene() sit out at a fixed distance (up to
+        const newPosition = new THREE.Vector3().copy(sphere.center).addScaledVector(viewDir, distance);
+        // Never shrink the far plane below the default: the ground/sky/
+        // walls built in initScene() sit out at a fixed distance (up to
         // wallDistance=600) regardless of the loaded STL's size, and a
         // smaller far plane here would clip them out of view.
-        this.camera.far = Math.max(DEFAULT_CAMERA_FAR, distance + sphere.radius * 4 + 10);
+        const { near: newNear, far: newFar, minDistance: newMinDistance, maxDistance: newMaxDistance } =
+            computeCameraLimits(sphere.radius, distance, DEFAULT_CAMERA_FAR);
+
+        if (
+            !Number.isFinite(newPosition.x) ||
+            !Number.isFinite(newPosition.y) ||
+            !Number.isFinite(newPosition.z) ||
+            !Number.isFinite(newNear) ||
+            !Number.isFinite(newFar) ||
+            !Number.isFinite(newMinDistance) ||
+            !Number.isFinite(newMaxDistance) ||
+            !(newNear > 0) ||
+            !(newMinDistance > newNear) ||
+            !(newMaxDistance > newMinDistance) ||
+            !(newFar > newMaxDistance)
+        ) {
+            return;
+        }
+
+        this.camera.position.copy(newPosition);
+        this.camera.near = newNear;
+        this.camera.far = newFar;
         this.camera.updateProjectionMatrix();
 
         this.controls.target.copy(sphere.center);
+        // Bound OrbitControls' mouse-wheel zoom (dolly) to this object's
+        // scale: without limits, zooming in has no minimum distance and
+        // can push the camera past the near plane (clipping the model),
+        // and zooming out has no maximum, risking the far plane instead.
+        this.controls.minDistance = newMinDistance;
+        this.controls.maxDistance = newMaxDistance;
         this.controls.update();
     }
 
@@ -590,6 +657,7 @@ export class RectPlacerThree {
     private disposeStlMesh() {
         if (!this.stlMesh) return;
         this.scene.remove(this.stlMesh);
+        disposeStlMeshResources(this.stlMesh);
         this.stlMesh = null;
     }
 }

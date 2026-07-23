@@ -219,6 +219,7 @@ import { useI18n } from 'vue-i18n';
 
 import { parseRectInfo } from "./domain/rectParser";
 import { RectPlacerThree } from "./three/rectPlacerThree";
+import { isValidStlScale } from "./three/stlScale";
 
 const containerRef = ref<HTMLElement | null>(null);
 const rectTextAreaRef = ref<HTMLTextAreaElement | null>(null);
@@ -318,7 +319,7 @@ function showStlModal()
 
 function applyStlScale()
 {
-  if (stlScale.value <= 0) {
+  if (!isValidStlScale(stlScale.value)) {
     alert(t("message.stlScaleMustBePositive"));
     stlScale.value = prevStlScale;
     return;
