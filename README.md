@@ -1,5 +1,8 @@
 # RectPlacer
 
+[![CI](https://github.com/akonno/RectPlacer/actions/workflows/ci.yml/badge.svg)](https://github.com/akonno/RectPlacer/actions/workflows/ci.yml)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21515192.svg)](https://doi.org/10.5281/zenodo.21515192)
+
 RectPlacer is a browser-based tool for defining and managing axis-aligned
 cuboid regions on STL models, primarily intended for numerical analysis
 preprocessing and research workflows.
@@ -151,6 +154,15 @@ structure provided for trying out the tool.*
   the cuboid data.
 - RectPlacer is a region-definition tool, not a CAD tool: it does not
   edit or modify the geometry of the loaded STL model.
+
+## Citation
+
+If you use RectPlacer in your research, please cite the software using
+the metadata in [`CITATION.cff`](CITATION.cff) or GitHub's
+"Cite this repository" feature.
+
+RectPlacer v1.0.0 is archived on Zenodo:
+[https://doi.org/10.5281/zenodo.21515192](https://doi.org/10.5281/zenodo.21515192).
 
 ## License
 
