@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: >-
+  If you use RectPlacer in your research, please cite the software
+  using the metadata below.
+title: RectPlacer
+type: software
+version: 1.0.0
+authors:
+  - family-names: Konno
+    given-names: Akihisa
+    orcid: "https://orcid.org/0000-0001-5191-6105"
+license: MIT
+repository-code: "https://github.com/akonno/RectPlacer"
+url: "https://akonno.github.io/RectPlacer/"
+abstract: >-
+  RectPlacer is a browser-based tool for defining and managing
+  axis-aligned cuboid regions on STL models, intended for numerical
+  analysis preprocessing and research workflows.
+keywords:
+  - STL
+  - cuboid regions
+  - numerical analysis
+  - preprocessing
+  - scientific software
