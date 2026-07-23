@@ -6,6 +6,9 @@ title: RectPlacer
 type: software
 version: 1.0.0
 date-released: 2026-07-24
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.21515192"
 authors:
   - family-names: Konno
     given-names: Akihisa
