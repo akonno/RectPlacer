@@ -6,7 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "echo \"Error: no test specified\" && exit 0",
+    "test": "vitest run",
     "typecheck": "vue-tsc --noEmit",
     "sample:generate": "node scripts/generate-sample-structure.mjs"
   },
@@ -29,6 +29,7 @@
     "three": "^0.182.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.0",
+    "vitest": "^4.1.10",
     "vue": "^3.5.26",
     "vue-i18n": "^11.2.2",
     "vue-tsc": "^3.1.8"
