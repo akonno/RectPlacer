@@ -199,6 +199,9 @@ export class RectPlacerThree {
         this.stlScale = scale;
         if (this.stlMesh) {
             this.stlMesh.scale.set(scale, scale, scale);
+            // Re-frame: the model's size just changed, so the camera
+            // distance computed for the old scale no longer applies.
+            this.frameObject(this.stlMesh);
         }
     }
 
@@ -273,8 +276,21 @@ export class RectPlacerThree {
             return;
         }
 
-        const vFovRad = THREE.MathUtils.degToRad(this.camera.fov);
-        const distance = (sphere.radius / Math.sin(vFovRad / 2)) * paddingFactor;
+        // camera.fov is the *vertical* FOV; derive the horizontal one from
+        // the aspect ratio so narrow/portrait viewports (aspect < 1, where
+        // horizontal FOV is the tighter of the two) don't clip the sphere
+        // on the sides.
+        const vFovHalfRad = THREE.MathUtils.degToRad(this.camera.fov) / 2;
+        const aspect = this.camera.aspect;
+        // A hidden/collapsed container can report width 0 (aspect 0), which
+        // would otherwise make hFovHalfRad 0 and distance infinite,
+        // corrupting the camera's position/near/far. Fall back to the
+        // (always valid) vertical FOV in that case.
+        const hFovHalfRad = Number.isFinite(aspect) && aspect > 0
+            ? Math.atan(Math.tan(vFovHalfRad) * aspect)
+            : vFovHalfRad;
+        const limitingFovHalfRad = Math.min(vFovHalfRad, hFovHalfRad);
+        const distance = (sphere.radius / Math.sin(limitingFovHalfRad)) * paddingFactor;
 
         const viewDir = new THREE.Vector3().subVectors(this.camera.position, this.controls.target);
         if (viewDir.lengthSq() === 0) {
