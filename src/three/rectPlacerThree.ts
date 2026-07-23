@@ -39,6 +39,12 @@ const normalRectColor = new THREE.Color(0x0000ff); // Blue
 const highlightedRectColor = new THREE.Color(0x00ff00); // Green
 const workingRectColor = new THREE.Color(0x007744); // Dark Green
 
+// Camera clip planes wide enough to always include the fixed scene
+// backdrop (ground/sky/walls out to wallDistance=600 in initScene), on
+// top of whatever an STL's own size additionally requires.
+const DEFAULT_CAMERA_NEAR = 0.1;
+const DEFAULT_CAMERA_FAR = 1000;
+
 // XXX: Coordinates of Three.js:
 // y ^
 //   |
@@ -58,7 +64,7 @@ const workingRectColor = new THREE.Color(0x007744); // Dark Green
 export class RectPlacerThree {
     private alive = true;
     private scene = new THREE.Scene();
-    private camera = new THREE.PerspectiveCamera(45, 16/9, 0.1, 1000);
+    private camera = new THREE.PerspectiveCamera(45, 16/9, DEFAULT_CAMERA_NEAR, DEFAULT_CAMERA_FAR);
     private renderer: THREE.WebGLRenderer;
     private controls: OrbitControls;
 
@@ -278,7 +284,11 @@ export class RectPlacerThree {
 
         this.camera.position.copy(sphere.center).addScaledVector(viewDir, distance);
         this.camera.near = Math.max(distance / 1000, 0.001);
-        this.camera.far = distance + sphere.radius * 4 + 10;
+        // Never shrink below the default far plane: the ground/sky/walls
+        // built in initScene() sit out at a fixed distance (up to
+        // wallDistance=600) regardless of the loaded STL's size, and a
+        // smaller far plane here would clip them out of view.
+        this.camera.far = Math.max(DEFAULT_CAMERA_FAR, distance + sphere.radius * 4 + 10);
         this.camera.updateProjectionMatrix();
 
         this.controls.target.copy(sphere.center);
