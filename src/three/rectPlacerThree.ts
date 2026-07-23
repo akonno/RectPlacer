@@ -7,6 +7,9 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import { RectDefinition, toRenderPos } from "../domain/rect";
+import { isValidStlScale } from "./stlScale";
+import { disposeStlMeshResources } from "./disposeStlMeshResources";
+import { computeCameraLimits } from "./cameraLimits";
 
 // Import texture URLs
 import skyTextureUrl from "/assets/textures/skytile1.png";
@@ -39,6 +42,12 @@ const normalRectColor = new THREE.Color(0x0000ff); // Blue
 const highlightedRectColor = new THREE.Color(0x00ff00); // Green
 const workingRectColor = new THREE.Color(0x007744); // Dark Green
 
+// Camera clip planes wide enough to always include the fixed scene
+// backdrop (ground/sky/walls out to wallDistance=600 in initScene), on
+// top of whatever an STL's own size additionally requires.
+const DEFAULT_CAMERA_NEAR = 0.1;
+const DEFAULT_CAMERA_FAR = 1000;
+
 // XXX: Coordinates of Three.js:
 // y ^
 //   |
@@ -58,7 +67,7 @@ const workingRectColor = new THREE.Color(0x007744); // Dark Green
 export class RectPlacerThree {
     private alive = true;
     private scene = new THREE.Scene();
-    private camera = new THREE.PerspectiveCamera(45, 16/9, 0.1, 1000);
+    private camera = new THREE.PerspectiveCamera(45, 16/9, DEFAULT_CAMERA_NEAR, DEFAULT_CAMERA_FAR);
     private renderer: THREE.WebGLRenderer;
     private controls: OrbitControls;
 
@@ -67,6 +76,9 @@ export class RectPlacerThree {
     private rafId: number | null = null;
     private stlMesh: THREE.Mesh | null = null;
     private stlScale: number = 1.0;
+    // Monotonically increasing token identifying the most recent loadStl()
+    // call; used to discard a stale load that resolves after a newer one.
+    private stlLoadGeneration = 0;
 
     // ---- InstancedMesh (Rect) ----
     private rectInst: THREE.InstancedMesh | null = null;
@@ -177,21 +189,46 @@ export class RectPlacerThree {
     }
 
     async loadStl(file: File): Promise<void> {
+        const generation = ++this.stlLoadGeneration;
         const buf = await file.arrayBuffer();
+        if (!this.alive || generation !== this.stlLoadGeneration) {
+            // Disposed, or superseded by a newer STL selection made while
+            // this one was still being read -- leave the scene and
+            // whatever mesh a later (or no) call has set up untouched.
+            return;
+        }
+
         this.disposeStlMesh();
 
+        // Not tracked by ResourceTracker: the STL mesh's geometry/material
+        // are short-lived and swapped out on every load, so disposeStlMesh()
+        // is their single, sole owner (see disposeStlMeshResources()).
+        // ResourceTracker is reserved for resources that live for the
+        // scene's lifetime and are only released on app dispose().
         const loader = new STLLoader();
-        const geom = this.res.track(loader.parse(buf));
-        const mat = this.res.track(new THREE.MeshPhongMaterial({ color: 0xff5555, specular: 0x111111, shininess: 200 }));
+        const geom = loader.parse(buf);
+        const mat = new THREE.MeshPhongMaterial({ color: 0xff5555, specular: 0x111111, shininess: 200 });
         this.stlMesh = new THREE.Mesh(geom, mat);
         this.stlMesh.rotateX(-Math.PI / 2);
+        // Apply the current display scale so a re-loaded/newly-loaded STL
+        // matches the scale already shown in the UI, rather than
+        // resetting to 1.
+        this.stlMesh.scale.set(this.stlScale, this.stlScale, this.stlScale);
         this.scene.add(this.stlMesh);
+        this.frameObject(this.stlMesh);
     }
 
     setStlScale(scale: number) {
+        if (!isValidStlScale(scale)) {
+            console.warn(`Ignoring invalid STL scale: ${scale}`);
+            return;
+        }
         this.stlScale = scale;
         if (this.stlMesh) {
             this.stlMesh.scale.set(scale, scale, scale);
+            // Re-frame: the model's size just changed, so the camera
+            // distance computed for the old scale no longer applies.
+            this.frameObject(this.stlMesh);
         }
     }
 
@@ -246,6 +283,100 @@ export class RectPlacerThree {
 
 
     // ---- private ----
+
+    // Moves the camera back (keeping its current viewing direction) so
+    // `object`'s bounding sphere fits within the vertical field of view.
+    // Without this, an STL loaded at a real-world scale far from the
+    // scene's default ~1-2 unit camera distance (e.g. meters vs the
+    // default sample rects' ~0.1-0.5 units) starts up nearly inside the
+    // model instead of framing it.
+    private frameObject(object: THREE.Object3D, paddingFactor = 1.5) {
+        object.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(object);
+        if (box.isEmpty()) {
+            return;
+        }
+
+        const sphere = new THREE.Sphere();
+        box.getBoundingSphere(sphere);
+        // An extreme (but finite) STL scale can overflow the bounding
+        // sphere's center/radius to Infinity/NaN. Validate everything
+        // before touching camera state, and bail out (leaving the
+        // existing, presumably-valid camera state alone) rather than
+        // writing non-finite values into it.
+        if (
+            !(sphere.radius > 0) ||
+            !Number.isFinite(sphere.radius) ||
+            !Number.isFinite(sphere.center.x) ||
+            !Number.isFinite(sphere.center.y) ||
+            !Number.isFinite(sphere.center.z)
+        ) {
+            return;
+        }
+
+        // camera.fov is the *vertical* FOV; derive the horizontal one from
+        // the aspect ratio so narrow/portrait viewports (aspect < 1, where
+        // horizontal FOV is the tighter of the two) don't clip the sphere
+        // on the sides.
+        const vFovHalfRad = THREE.MathUtils.degToRad(this.camera.fov) / 2;
+        const aspect = this.camera.aspect;
+        // A hidden/collapsed container can report width 0 (aspect 0), which
+        // would otherwise make hFovHalfRad 0 and distance infinite,
+        // corrupting the camera's position/near/far. Fall back to the
+        // (always valid) vertical FOV in that case.
+        const hFovHalfRad = Number.isFinite(aspect) && aspect > 0
+            ? Math.atan(Math.tan(vFovHalfRad) * aspect)
+            : vFovHalfRad;
+        const limitingFovHalfRad = Math.min(vFovHalfRad, hFovHalfRad);
+        const distance = (sphere.radius / Math.sin(limitingFovHalfRad)) * paddingFactor;
+        if (!Number.isFinite(distance) || distance <= 0) {
+            return;
+        }
+
+        const viewDir = new THREE.Vector3().subVectors(this.camera.position, this.controls.target);
+        if (viewDir.lengthSq() === 0) {
+            viewDir.set(-1, 1, 0.5);
+        }
+        viewDir.normalize();
+
+        const newPosition = new THREE.Vector3().copy(sphere.center).addScaledVector(viewDir, distance);
+        // Never shrink the far plane below the default: the ground/sky/
+        // walls built in initScene() sit out at a fixed distance (up to
+        // wallDistance=600) regardless of the loaded STL's size, and a
+        // smaller far plane here would clip them out of view.
+        const { near: newNear, far: newFar, minDistance: newMinDistance, maxDistance: newMaxDistance } =
+            computeCameraLimits(sphere.radius, distance, DEFAULT_CAMERA_FAR);
+
+        if (
+            !Number.isFinite(newPosition.x) ||
+            !Number.isFinite(newPosition.y) ||
+            !Number.isFinite(newPosition.z) ||
+            !Number.isFinite(newNear) ||
+            !Number.isFinite(newFar) ||
+            !Number.isFinite(newMinDistance) ||
+            !Number.isFinite(newMaxDistance) ||
+            !(newNear > 0) ||
+            !(newMinDistance > newNear) ||
+            !(newMaxDistance > newMinDistance) ||
+            !(newFar > newMaxDistance)
+        ) {
+            return;
+        }
+
+        this.camera.position.copy(newPosition);
+        this.camera.near = newNear;
+        this.camera.far = newFar;
+        this.camera.updateProjectionMatrix();
+
+        this.controls.target.copy(sphere.center);
+        // Bound OrbitControls' mouse-wheel zoom (dolly) to this object's
+        // scale: without limits, zooming in has no minimum distance and
+        // can push the camera past the near plane (clipping the model),
+        // and zooming out has no maximum, risking the far plane instead.
+        this.controls.minDistance = newMinDistance;
+        this.controls.maxDistance = newMaxDistance;
+        this.controls.update();
+    }
 
     private loadSkyTexture(): Promise<THREE.Texture> {
         if (this.skyTexturePromise) {
@@ -526,6 +657,7 @@ export class RectPlacerThree {
     private disposeStlMesh() {
         if (!this.stlMesh) return;
         this.scene.remove(this.stlMesh);
+        disposeStlMeshResources(this.stlMesh);
         this.stlMesh = null;
     }
 }

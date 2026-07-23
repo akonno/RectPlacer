@@ -8,7 +8,13 @@ MEMO.md
 # ------------------------------
 Attic/
 public/
-samples/
+
+# samples/ holds large local research STL/CSV files that are not meant
+# to be committed; only the curated, script-generated sample dataset
+# below is tracked.
+samples/*
+!samples/sample-structure.stl
+!samples/sample-structure-rects.csv
 
 # ------------------------------
 # Node / Vite
@@ -44,6 +50,9 @@ Thumbs.db
 !.vscode/settings.json
 
 .idea/
+
+.claude/
+.codex/
 
 # ------------------------------
 # Coverage / test artifacts

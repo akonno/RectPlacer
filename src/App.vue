@@ -219,6 +219,7 @@ import { useI18n } from 'vue-i18n';
 
 import { parseRectInfo } from "./domain/rectParser";
 import { RectPlacerThree } from "./three/rectPlacerThree";
+import { isValidStlScale } from "./three/stlScale";
 
 const containerRef = ref<HTMLElement | null>(null);
 const rectTextAreaRef = ref<HTMLTextAreaElement | null>(null);
@@ -292,9 +293,13 @@ function saveRects()
 function onSTLUploaded(e: Event)
 {
 	// event(=e)から画像データを取得する
-	const stlFile = (e.target as HTMLInputElement).files![0]
+	const input = e.target as HTMLInputElement;
+	const stlFile = input.files![0]
 	console.log(stlFile.name);
 	loadSTLFromFile(stlFile)
+	// Reset so selecting the same file again still fires "change"
+	// (the browser only fires it when the input's value actually changes).
+	input.value = '';
 }
 
 function loadSTLFromFile(aFile: File)
@@ -314,7 +319,7 @@ function showStlModal()
 
 function applyStlScale()
 {
-  if (stlScale.value <= 0) {
+  if (!isValidStlScale(stlScale.value)) {
     alert(t("message.stlScaleMustBePositive"));
     stlScale.value = prevStlScale;
     return;
