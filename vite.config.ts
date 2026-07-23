@@ -1,4 +1,4 @@
-// vite.config.ts for Hanoi Simulator site
+// vite.config.ts for RectPlacer
 // Copyright (C) 2024-2025 KONNO Akihisa
 import { defineConfig } from "vite";
 import vue from '@vitejs/plugin-vue';
